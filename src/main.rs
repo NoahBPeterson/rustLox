@@ -1,22 +1,51 @@
-use crate::chunk::add_constant;
+use std::{env, fs, io::{self, Write}, string};
+
+use vm::{InterpretResult, interpret};
+
 mod chunk;
 mod debug;
 mod value;
 mod vm;
+mod compile;
+mod scanner;
 
 fn main()
 {
     let mut vm = vm::init_vm();
     let mut chunk: chunk::Chunk = chunk::init_chunk();
 
-    let constant: u32 = add_constant(&mut chunk, 1.2);
-    chunk::write_chunk(&mut chunk, chunk::OpCode::OpConstant as u8, 123);
-    chunk::write_chunk(&mut chunk, constant as u8, 123);
-
-    chunk::write_chunk(&mut chunk, chunk::OpCode::OpReturn as u8, 123);
-
-    debug::disassemble_chunk(&chunk, "test chunk".to_string());
-
-    vm::interpret(chunk, &mut vm);
+    let args: Vec<String> = env::args().collect();
+    println!("args.len() = {}", args.len());
+    if args.len() == 1 
+    {
+        repl();
+    } else if args.len() == 2
+    {
+        RunFile(&args[1]);
+    } else {
+        println!("Usage: clox [path]");
+    }
 }
 
+fn repl()
+{
+    let mut line = String::new();
+    loop 
+    {
+        print!("> ");
+        io::stdout().flush();
+        let input = std::io::stdin().read_line(&mut line).unwrap();
+        break;
+    }
+}
+
+fn RunFile(path: &String)
+{
+    let source = fs::read_to_string(path)
+        .expect("Something went wrong reading the file");
+
+    let result: u8 = InterpretResult::InterpretCompileError as u8; //interpret(source);
+
+    if result == InterpretResult::InterpretCompileError as u8 { std::process::exit(65); }
+    if result == InterpretResult::InterpretRuntimeError as u8 { std::process::exit(70); }
+}

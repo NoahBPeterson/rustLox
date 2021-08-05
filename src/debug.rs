@@ -31,11 +31,31 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: u8) -> u8
     {
         x if x == OpCode::OpReturn as u8 =>
         {
-            return simple_instruction("OP_RETURN\n".to_string(), offset);
+            return simple_instruction("OpReturn\n".to_string(), offset);
         }
         x if x == OpCode::OpConstant as u8 =>
         {
-            return constant_instruction("OP_CONSTANT\n".to_string(), chunk, offset);
+            return constant_instruction("OpConstant\n".to_string(), chunk, offset);
+        }
+        x if x == OpCode::OpNegate as u8 =>
+        {
+            return simple_instruction("OpNegate\n".to_string(), offset);
+        }
+        x if x == OpCode::OpAdd as u8 =>
+        {
+            return simple_instruction("OpAdd\n".to_string(), offset);
+        }
+        x if x == OpCode::OpSubtract as u8 =>
+        {
+            return simple_instruction("OpSubtract\n".to_string(), offset);
+        }
+        x if x == OpCode::OpMultiply as u8 =>
+        {
+            return simple_instruction("OpMultiply\n".to_string(), offset);
+        }
+        x if x == OpCode::OpDivide as u8 =>
+        {
+            return simple_instruction("OpDivide\n".to_string(), offset);
         }
         _ => 
         {

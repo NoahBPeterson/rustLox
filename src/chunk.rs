@@ -5,8 +5,13 @@ use crate::value::{self, ValueArray};
 #[repr(u8)]
 pub enum OpCode
 {
-    OpConstant = 1,
-    OpReturn = 2,
+    OpConstant = 0,
+    OpReturn = 1,
+    OpNegate = 2,
+    OpAdd = 3,
+    OpSubtract = 4,
+    OpMultiply = 5,
+    OpDivide = 6,
 }
 
 pub struct Chunk

@@ -5,7 +5,7 @@ A bytecode VM implementation of Lox using Rust.
 
 Todo: ☐ ☑ ☒
 
-☐ Scanner
+☑ Scanner
 
 ☐ Compiling Expressions
 

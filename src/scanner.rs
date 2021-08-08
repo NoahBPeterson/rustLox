@@ -29,48 +29,48 @@ pub fn Scan_Token(scanner: &mut Scanner) -> Token
         return Make_Token(TokenType::TokenEof, &scanner);
     }
 
-    let character: String = advance(scanner);
+    let character = advance(scanner);
 
     match character
     {
-        x if x == "(" => return Make_Token(TokenType::TokenLeftParen, scanner),
-        x if x == ")" => return Make_Token(TokenType::TokenRightParen, scanner),
-        x if x == "{" => return Make_Token(TokenType::TokenLeftBrace, scanner),
-        x if x == "}" => return Make_Token(TokenType::TokenRightBrace, scanner),
-        x if x == ";" => return Make_Token(TokenType::TokenSemicolon, scanner),
-        x if x == "," => return Make_Token(TokenType::TokenComma, scanner),
-        x if x == "." => return Make_Token(TokenType::TokenDot, scanner),
-        x if x == "-" => return Make_Token(TokenType::TokenMinus, scanner),
-        x if x == "+" => return Make_Token(TokenType::TokenPlus, scanner),
-        x if x == "/" => return Make_Token(TokenType::TokenSlash, scanner),
-        x if x == "*" => return Make_Token(TokenType::TokenStar, scanner),
-        x if x == "!" => 
+        x if x == '(' => return Make_Token(TokenType::TokenLeftParen, scanner),
+        x if x == ')' => return Make_Token(TokenType::TokenRightParen, scanner),
+        x if x == '{' => return Make_Token(TokenType::TokenLeftBrace, scanner),
+        x if x == '}' => return Make_Token(TokenType::TokenRightBrace, scanner),
+        x if x == ';' => return Make_Token(TokenType::TokenSemicolon, scanner),
+        x if x == ',' => return Make_Token(TokenType::TokenComma, scanner),
+        x if x == '.' => return Make_Token(TokenType::TokenDot, scanner),
+        x if x == '-' => return Make_Token(TokenType::TokenMinus, scanner),
+        x if x == '+' => return Make_Token(TokenType::TokenPlus, scanner),
+        x if x == '/' => return Make_Token(TokenType::TokenSlash, scanner),
+        x if x == '*' => return Make_Token(TokenType::TokenStar, scanner),
+        x if x == '!' => 
         {
-            if matchCharacter("=".to_string(), scanner)
+            if matchCharacter('=', scanner)
             {
                 return Make_Token(TokenType::TokenBangEqual, scanner);
             }
             return Make_Token(TokenType::TokenBang, scanner);
         }
-        x if x == "=" => 
+        x if x == '=' => 
         {
-            if matchCharacter("=".to_string(), scanner)
+            if matchCharacter('=', scanner)
             {
                 return Make_Token(TokenType::TokenEqualEqual, scanner);
             }
             return Make_Token(TokenType::TokenEqual, scanner);
         }
-        x if x == "<" => 
+        x if x == '<' => 
         {
-            if matchCharacter("=".to_string(), scanner)
+            if matchCharacter('=', scanner)
             {
                 return Make_Token(TokenType::TokenLessEqual, scanner);
             }
             return Make_Token(TokenType::TokenLess, scanner);
         }
-        x if x == ">" => 
+        x if x == '>' => 
         {
-            if matchCharacter("=".to_string(), scanner)
+            if matchCharacter('=', scanner)
             {
                 return Make_Token(TokenType::TokenGreaterEqual, scanner);
             }
@@ -84,13 +84,13 @@ fn Skip_Whitespace(scanner: &mut Scanner)
 {
     loop
     {
-        let character: String = peek(scanner);
+        let character = peek(scanner);
         match character
         {
-            x if x == " " => advance(scanner),
-            x if x == '\r'.to_string() => advance(scanner),
-            x if x == '\t'.to_string() => advance(scanner),
-            x if x == '\n'.to_string() => 
+            x if x == ' ' => advance(scanner),
+            x if x == '\r' => advance(scanner),
+            x if x == '\t' => advance(scanner),
+            x if x == '\n' => 
             {
                 scanner.line = scanner.line + 1;
                 advance(scanner);
@@ -101,18 +101,18 @@ fn Skip_Whitespace(scanner: &mut Scanner)
     }
 }
 
-fn peek(scanner: &mut Scanner) -> String
+fn peek(scanner: &mut Scanner) -> char
 {
-    return " ".to_string();
+    return ' ';
 }
 
-fn matchCharacter(expectedString: String, scanner: &mut Scanner) -> bool
+fn matchCharacter(expectedString: char, scanner: &mut Scanner) -> bool
 {
     if scanner.source.chars().nth(scanner.current as usize).unwrap().eq(&'\0')
     {
         return false;
     }
-    if scanner.source.chars().nth(scanner.current as usize).unwrap().eq(&expectedString.chars().next().unwrap())
+    if scanner.source.chars().nth(scanner.current as usize).unwrap().eq(&expectedString)
     {
         return false;
     }
@@ -120,10 +120,10 @@ fn matchCharacter(expectedString: String, scanner: &mut Scanner) -> bool
     return true;
 }
 
-fn advance(scanner: &mut Scanner) -> String
+fn advance(scanner: &mut Scanner) -> char
 {
     scanner.current = scanner.current + 1;
-    return scanner.source.clone()[(scanner.current - 1) as usize..scanner.current as usize].to_string();
+    return scanner.source.clone()[(scanner.current - 1) as usize..scanner.current as usize].chars().next().unwrap();
 }
 
 pub fn Make_Token(tokenType: TokenType, scanner: &Scanner) -> Token

@@ -283,7 +283,7 @@ fn matchCharacter(expected_string: char, scanner: &mut Scanner) -> bool
     return true;
 }
 
-fn advance(scanner: &mut Scanner) -> char
+pub fn advance(scanner: &mut Scanner) -> char
 {
     scanner.current = scanner.current + 1;
     return scanner.source.clone()[(scanner.current - 1) as usize..scanner.current as usize].chars().next().unwrap();

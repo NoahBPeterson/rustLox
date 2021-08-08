@@ -1,7 +1,7 @@
 use core::f64;
 use std::string;
 
-use crate::{chunk::{self, Chunk}, compile, debug::disassemble_instruction, value::print_value};
+use crate::{chunk::{self, Chunk, init_chunk}, compile, debug::disassemble_instruction, value::print_value};
 
 pub struct VM
 {
@@ -26,10 +26,18 @@ pub fn init_vm() -> VM
 
 pub fn interpret(source: &String, vm: &mut VM) -> InterpretResult
 {
-    compile::compile(&source);
-    //vm.chunk = chunk;
-    //vm.instructions = vm.chunk.code.clone();
-    return InterpretResult::InterpretOk;
+    let chunk = init_chunk();
+
+    if !compile::compile(source, &chunk)
+    {
+        return InterpretResult::InterpretCompileError;
+    }
+
+    vm.chunk = chunk;
+    vm.instructions = vm.chunk.code.clone();
+
+    let result = run(vm);
+    return result;
 }
 
 pub fn run(vm: &mut VM) -> InterpretResult

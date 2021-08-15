@@ -14,6 +14,7 @@ pub enum OpCode
     OpDivide = 6,
 }
 
+#[derive(Clone)]
 pub struct Chunk
 {
     pub code: Vec<u8>, // Array of bytes.

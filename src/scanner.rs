@@ -7,6 +7,7 @@ pub struct Scanner
     line: u32,
 }
 
+#[derive(Clone)]
 pub struct Token
 {
     pub token_type: TokenType,
@@ -311,7 +312,7 @@ pub fn Error_Token(error_message: &String, scanner: &Scanner) -> Token
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum TokenType
 {
     // Single-character tokens.

@@ -16,16 +16,23 @@ pub struct Parser
 
 pub enum Precedence
 {
-    prec_none,
-    prec_assignment,
-    prec_or,
-    prec_and,
-    prec_equality,
-    prec_comparison,
-    prec_term,
-    prec_unary,
-    prec_call,
-    prec_primary
+    PrecNone,
+    PrecAssignment,
+    PrecOr,
+    PrecAnd,
+    PrecEquality,
+    PrecComparison,
+    PrecTerm,
+    PrecUnary,
+    PrecCall,
+    PrecPrimary
+}
+
+pub struct ParseRule
+{
+    prefix: ParseFn,
+    infix: ParseFn,
+    precedence: Precedence
 }
 
 fn init_parser(scanner: &mut Scanner, chunk: &Chunk) -> Parser
@@ -92,6 +99,34 @@ fn end_compiler(parser: &mut Parser)
     emit_return(parser);
 }
 
+fn binary(parser: &mut Parser)
+{
+    let operator_type = parser.previous.token_type;
+    let rule = get_rule(operator_type);
+    parse_precedence(rule.precedence + 1);
+
+    match operator_type
+    {
+        x if x == TokenType::TokenPlus =>
+        {
+            emit_byte(OpCode::OpAdd as u8, parser);
+        }
+        x if x == TokenType::TokenMinus =>
+        {
+            emit_byte(OpCode::OpSubtract as u8, parser);
+        }
+        x if x == TokenType::TokenStar =>
+        {
+            emit_byte(OpCode::OpMultiply as u8, parser);
+        }
+        x if x == TokenType::TokenSlash =>
+        {
+            emit_byte(OpCode::OpDivide as u8, parser);
+        }
+        _ => return,
+    }
+}
+
 fn grouping(parser: &mut Parser, scanner: &mut Scanner)
 {
     expression();
@@ -100,7 +135,7 @@ fn grouping(parser: &mut Parser, scanner: &mut Scanner)
 
 fn expression()
 {
-    parse_precedence(Precedence::prec_assignment);
+    parse_precedence(Precedence::PrecAssignment);
 }
 
 fn number(number: String, parser: &mut Parser)
@@ -113,7 +148,7 @@ fn unary(parser: &mut Parser)
 {
     let operator_type: TokenType = parser.previous.token_type;
 
-    parse_precedence(Precedence::prec_unary);
+    parse_precedence(Precedence::PrecUnary);
 
     match operator_type
     {
@@ -131,6 +166,55 @@ fn unary(parser: &mut Parser)
 fn parse_precedence(precedence: Precedence)
 {
 
+}
+
+fn get_rule(token_type: TokenType) -> ParseRule
+{
+    let rules: Vec<ParseRule> = Vec::with_capacity(0);
+    rules.append(other)
+    ParseRule rules[] = {
+        [TOKEN_LEFT_PAREN]    = {grouping, NULL,   PREC_NONE},
+        [TOKEN_RIGHT_PAREN]   = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_LEFT_BRACE]    = {NULL,     NULL,   PREC_NONE}, 
+        [TOKEN_RIGHT_BRACE]   = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_COMMA]         = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_DOT]           = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_MINUS]         = {unary,    binary, PREC_TERM},
+        [TOKEN_PLUS]          = {NULL,     binary, PREC_TERM},
+        [TOKEN_SEMICOLON]     = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_SLASH]         = {NULL,     binary, PREC_FACTOR},
+        [TOKEN_STAR]          = {NULL,     binary, PREC_FACTOR},
+        [TOKEN_BANG]          = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_BANG_EQUAL]    = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_EQUAL]         = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_EQUAL_EQUAL]   = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_GREATER]       = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_GREATER_EQUAL] = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_LESS]          = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_LESS_EQUAL]    = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_IDENTIFIER]    = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_STRING]        = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_NUMBER]        = {number,   NULL,   PREC_NONE},
+        [TOKEN_AND]           = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_CLASS]         = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_ELSE]          = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_FALSE]         = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_FOR]           = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_FUN]           = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_IF]            = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_NIL]           = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_OR]            = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_PRINT]         = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_RETURN]        = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_SUPER]         = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_THIS]          = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_TRUE]          = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_VAR]           = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_WHILE]         = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_ERROR]         = {NULL,     NULL,   PREC_NONE},
+        [TOKEN_EOF]           = {NULL,     NULL,   PREC_NONE},
+      };
+    return 
 }
 
 fn emit_return(parser: &mut Parser)

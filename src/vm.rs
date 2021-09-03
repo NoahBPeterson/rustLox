@@ -1,7 +1,7 @@
 use core::f64;
 use std::string;
 
-use crate::{chunk::{self, Chunk, init_chunk}, compile, debug::disassemble_instruction, value::print_value};
+use crate::{chunk::{self, Chunk, init_chunk}, compile::{self, Compiler}, debug::disassemble_instruction, value::print_value};
 
 pub struct VM
 {
@@ -28,7 +28,7 @@ pub fn interpret(source: &String, vm: &mut VM) -> InterpretResult
 {
     let chunk = init_chunk();
 
-    if !compile::compile(source, &chunk)
+    if !Compiler::new_compiler(&mut chunk).compile(source)
     {
         return InterpretResult::InterpretCompileError;
     }

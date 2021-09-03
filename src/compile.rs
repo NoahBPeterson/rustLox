@@ -1,8 +1,7 @@
 use std::convert::TryInto;
-use std::iter::Scan;
 
 use crate::chunk::{Chunk, OpCode, add_constant, init_chunk, write_chunk};
-use crate::scanner::{self, Make_Token, Scan_Token, Scanner, Token, TokenType};
+use crate::scanner::{self, Init_Scanner, Make_Token, Scan_Token, Scanner, Token, TokenType};
 
 #[derive(Clone)]
 pub struct Parser
@@ -10,10 +9,36 @@ pub struct Parser
     current: Token,
     previous: Token,
     had_error: bool,
-    panic_mode: bool,
-    compiling_chunk: Chunk
+    panic_mode: bool
 }
 
+impl Parser
+{
+    pub fn new() -> Parser
+    {
+        Parser
+        {
+            current: Token
+            {
+                token_type: TokenType::TokenWhile,
+                line: 79680,
+                length: 0,
+                start: "".to_string(),
+            },
+            previous: Token
+            {
+                token_type: TokenType::TokenWhile,
+                line: 79680,
+                length: 0,
+                start: "".to_string(),
+            },
+            had_error: false,
+            panic_mode: false
+        }
+    }
+}
+
+#[derive(Copy, Clone)]
 pub enum Precedence
 {
     PrecNone,
@@ -28,10 +53,11 @@ pub enum Precedence
     PrecPrimary
 }
 
+#[derive(Copy, Clone)]
 pub struct ParseRule
 {
-    prefix: ParseFn,
-    infix: ParseFn,
+    prefix: Option<ParserFn>,
+    infix: Option<ParserFn>,
     precedence: Precedence
 }
 
@@ -43,137 +69,219 @@ fn init_parser(scanner: &mut Scanner, chunk: &Chunk) -> Parser
         previous: Make_Token(TokenType::TokenSuper, &scanner),
         had_error: false,
         panic_mode: false,
-        compiling_chunk: chunk.clone()
     };
 
 }
 
-pub fn compile(source: &String, chunk: &Chunk) -> bool
+pub struct Compiler<'a>
 {
-    let mut scanner = scanner::Init_Scanner(source);
-    let mut parser = init_parser(&mut scanner, chunk);
-    let mut compiling_chunk: Chunk = init_chunk();
-    advance(&mut parser, &mut scanner);
-    end_compiler(&mut parser);
-    return !parser.had_error;
+    scanner: Scanner,
+    parser: Parser,
+    current_chunk: &'a mut Chunk
 }
 
-fn advance(parser: &mut Parser, scanner: &mut Scanner)
+impl Compiler<'_>
 {
-    parser.previous = parser.current.clone();
-
-    loop
+    pub fn new_compiler(chunk: &mut Chunk) -> Compiler
     {
-        parser.current = Scan_Token(scanner);
-        if parser.current.token_type != TokenType::TokenError
+        Compiler
         {
-            break;
+            scanner: scanner::Init_Scanner(&"".to_string()),
+            parser: Parser::new(),
+            current_chunk: chunk
         }
-        error_at_current(parser.current.start.clone(), parser);
     }
-}
-
-fn consume(parser: &mut Parser, scanner: &mut Scanner, token_type: TokenType, message: String)
-{
-    if parser.current.token_type == token_type
+    
+    pub fn compile(&mut self, source: &String) -> bool
     {
-        advance(parser, scanner);
-        return;
+        self.scanner = scanner::Init_Scanner(source);
+        self.parser = init_parser(&mut self.scanner, self.current_chunk);
+        let mut compiling_chunk: Chunk = init_chunk();
+        self.advance();
+        self.end_compiler();
+        !self.parser.had_error
     }
-    error_at_current(message, parser);
-}
 
-fn emit_byte(byte: u8, parser: &mut Parser)
-{
-    write_chunk(&mut parser.compiling_chunk, byte, parser.previous.line)
-}
-
-fn emit_bytes(byte1: u8, byte2: u8, parser: &mut Parser)
-{
-    emit_byte(byte1, parser);
-    emit_byte(byte2, parser);
-}
-
-fn end_compiler(parser: &mut Parser)
-{
-    emit_return(parser);
-}
-
-fn binary(parser: &mut Parser)
-{
-    let operator_type = parser.previous.token_type;
-    let rule = get_rule(operator_type);
-    parse_precedence(rule.precedence + 1);
-
-    match operator_type
+    fn advance(&mut self)
     {
-        x if x == TokenType::TokenPlus =>
+        self.parser.previous = self.parser.current.clone();
+
+        loop
         {
-            emit_byte(OpCode::OpAdd as u8, parser);
+            self.parser.current = Scan_Token(&mut self.scanner);
+            if self.parser.current.token_type != TokenType::TokenError
+            {
+                break;
+            }
+            self.error_at_current(self.parser.current.start.clone());
         }
-        x if x == TokenType::TokenMinus =>
-        {
-            emit_byte(OpCode::OpSubtract as u8, parser);
-        }
-        x if x == TokenType::TokenStar =>
-        {
-            emit_byte(OpCode::OpMultiply as u8, parser);
-        }
-        x if x == TokenType::TokenSlash =>
-        {
-            emit_byte(OpCode::OpDivide as u8, parser);
-        }
-        _ => return,
     }
-}
-
-fn grouping(parser: &mut Parser, scanner: &mut Scanner)
-{
-    expression();
-    consume(parser, scanner, TokenType::TokenRightParen, "Expect ')' after expression.".to_string());
-}
-
-fn expression()
-{
-    parse_precedence(Precedence::PrecAssignment);
-}
-
-fn number(number: String, parser: &mut Parser)
-{
-    let value: f64 = number.parse().unwrap();
-    emit_constant(value, parser);
-}
-
-fn unary(parser: &mut Parser)
-{
-    let operator_type: TokenType = parser.previous.token_type;
-
-    parse_precedence(Precedence::PrecUnary);
-
-    match operator_type
+    fn consume(&mut self, token_type: TokenType, message: String)
     {
-        x if x == TokenType::TokenMinus =>
+        if self.parser.current.token_type == token_type
         {
-            emit_byte(OpCode::OpNegate as u8, parser);
+            self.advance();
+            return;
         }
-        _ => 
+        self.error_at_current(message);
+    }
+
+    fn grouping(&mut self)
+    {
+        self.expression();
+        self.consume(TokenType::TokenRightParen, "Expect ')' after expression.".to_string());
+    }
+
+    fn binary(&mut self)
+    {
+        let operator_type = self.parser.previous.token_type;
+        let rule = self.get_rule(operator_type);
+        self.parse_precedence(rule.precedence + 1);
+
+        match operator_type
+        {
+            x if x == TokenType::TokenPlus =>
+            {
+                self.emit_byte(OpCode::OpAdd as u8);
+            }
+            x if x == TokenType::TokenMinus =>
+            {
+                self.emit_byte(OpCode::OpSubtract as u8);
+            }
+            x if x == TokenType::TokenStar =>
+            {
+                self.emit_byte(OpCode::OpMultiply as u8);
+            }
+            x if x == TokenType::TokenSlash =>
+            {
+                self.emit_byte(OpCode::OpDivide as u8);
+            }
+            _ => return,
+        }
+    }
+
+    fn expression(&mut self)
+    {
+        self.parse_precedence(Precedence::PrecAssignment);
+    }
+
+    fn number(&mut self, number: String)
+    {
+        let value: f64 = number.parse().unwrap();
+        self.emit_constant(value);
+    }
+
+    fn unary(&mut self)
+    {
+        let operator_type: TokenType = self.parser.previous.token_type;
+
+        self.parse_precedence(Precedence::PrecUnary);
+
+        match operator_type
+        {
+            x if x == TokenType::TokenMinus =>
+            {
+                self.emit_byte(OpCode::OpNegate as u8);
+            }
+            _ => 
+            {
+                return;
+            }
+        }
+    }
+
+
+    fn parse_precedence(&mut self, precedence: Precedence)
+    {
+        self.advance();
+    }
+
+    fn make_constant(&mut self, value: f64) -> u8
+    {
+        let constant = add_constant(&mut self.current_chunk, value);
+        if constant > 255
+        {
+            self.error("Too many constants in one chunk.".to_string());
+            return 0;
+        }
+        let constant_byte: u8 = constant.try_into().unwrap();
+        return constant_byte;
+    }
+
+    fn emit_byte(&mut self, byte: u8)
+    {
+        write_chunk(&mut self.current_chunk, byte, self.parser.previous.line)
+    }
+
+    fn emit_bytes(&mut self, byte1: u8, byte2: u8)
+    {
+        self.emit_byte(byte1);
+        self.emit_byte(byte2);
+    }
+
+    fn emit_return(&mut self)
+    {
+        self.emit_byte(TokenType::TokenReturn as u8)
+    }
+
+
+
+    fn emit_constant(&mut self, value: f64)
+    {
+        self.emit_bytes(OpCode::OpConstant as u8, self.make_constant(value));
+    }
+
+    fn end_compiler(&mut self)
+    {
+        self.emit_return();
+    }
+
+    fn error_at_current(&mut self, message: String)
+    {
+        self.error_at(&self.parser.current.clone(), message);
+    }
+
+    fn error(&mut self, message: String)
+    {
+        self.error_at(&self.parser.previous.clone(), message);
+    }
+
+    fn error_at(&mut self, token: &Token, message: String)
+    {
+        if self.parser.panic_mode
         {
             return;
         }
+        self.parser.panic_mode = true;
+        print!("[line {}] Error", token.line);
+        if token.token_type == TokenType::TokenEof
+        {
+            print!(" at end");
+        }
+        else if token.token_type == TokenType::TokenError
+        {
+            
+        }
+        else
+        {
+            print!(" at {}", token.start)
+        }
+        print!(": {}\n", message);
+        self.parser.had_error = true;
     }
 }
 
-fn parse_precedence(precedence: Precedence)
-{
+type ParserFn = fn(&mut Compiler) -> ();
 
-}
 
-fn get_rule(token_type: TokenType) -> ParseRule
+
+/*fn get_rule(token_type: TokenType) -> ParseRule
 {
     let rules: Vec<ParseRule> = Vec::with_capacity(0);
-    rules.append(other)
-    ParseRule rules[] = {
-        [TOKEN_LEFT_PAREN]    = {grouping, NULL,   PREC_NONE},
+    let array: [fn(); fn(); Precedence] = 
+    rules.push(ParseRule {prefix: grouping, precedence: Precedence::PrecNone, infix: () });
+    let ParseRule rules[] = {
+        [TokenType::TokenLeftParen]    = {grouping, NULL,   PREC_NONE},
         [TOKEN_RIGHT_PAREN]   = {NULL,     NULL,   PREC_NONE},
         [TOKEN_LEFT_BRACE]    = {NULL,     NULL,   PREC_NONE}, 
         [TOKEN_RIGHT_BRACE]   = {NULL,     NULL,   PREC_NONE},
@@ -215,60 +323,6 @@ fn get_rule(token_type: TokenType) -> ParseRule
         [TOKEN_EOF]           = {NULL,     NULL,   PREC_NONE},
       };
     return 
-}
+}*/
 
-fn emit_return(parser: &mut Parser)
-{
-    emit_byte(TokenType::TokenReturn as u8, parser)
-}
 
-fn make_constant(value: f64, parser: &mut Parser) -> u8
-{
-    let constant = add_constant(&mut parser.compiling_chunk, value);
-    if constant > 255
-    {
-        error("Too many constants in one chunk.".to_string(), parser);
-        return 0;
-    }
-    let constant_byte: u8 = constant.try_into().unwrap();
-    return constant_byte;
-}
-
-fn emit_constant(value: f64, parser: &mut Parser)
-{
-    emit_bytes(OpCode::OpConstant as u8, make_constant(value, parser), parser);
-}
-
-fn error_at_current(message: String, parser: &mut Parser)
-{
-    error_at(&parser.current.clone(), message, parser);
-}
-
-fn error(message: String, parser: &mut Parser)
-{
-    error_at(&parser.previous.clone(), message, parser);
-}
-
-fn error_at(token: &Token, message: String, parser: &mut Parser)
-{
-    if parser.panic_mode
-    {
-        return;
-    }
-    parser.panic_mode = true;
-    print!("[line {}] Error", token.line);
-    if token.token_type == TokenType::TokenEof
-    {
-        print!(" at end");
-    }
-    else if token.token_type == TokenType::TokenError
-    {
-        
-    }
-    else
-    {
-        print!(" at {}", token.start)
-    }
-    print!(": {}\n", message);
-    parser.had_error = true;
-}

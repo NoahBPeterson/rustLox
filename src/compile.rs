@@ -117,7 +117,7 @@ impl Compiler<'_>
         self.scanner = scanner::Init_Scanner(source);
         self.parser = init_parser(&mut self.scanner, self.current_chunk);
         let mut compiling_chunk: Chunk = init_chunk();
-        self.advance();
+        //self.advance();
         self.expression();
         self.end_compiler();
         !self.parser.had_error
@@ -188,7 +188,7 @@ impl Compiler<'_>
 
     fn number(&mut self)
     {
-        let value: f64 = self.parser.previous.start.parse().unwrap();
+        let value: f64 = self.parser.previous.start.replace(" ", "").parse().unwrap();
         self.emit_constant(value);
     }
 
@@ -260,7 +260,7 @@ impl Compiler<'_>
 
     fn emit_return(&mut self)
     {
-        self.emit_byte(TokenType::TokenReturn as u8)
+        self.emit_byte(OpCode::OpReturn as u8)
     }
 
 

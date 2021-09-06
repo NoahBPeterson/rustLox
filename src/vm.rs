@@ -60,7 +60,7 @@ pub fn run(vm: &mut VM) -> InterpretResult
         }
         println!("");*/
         let line = vm.instructions[i];
-        disassemble_instruction(&vm.chunk, line - vm.chunk.code[i]);
+        disassemble_instruction(&vm.chunk, vm.chunk.code[i]);
         match line
         {
             x if x == chunk::OpCode::OpReturn as u8 =>

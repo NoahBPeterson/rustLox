@@ -18,7 +18,7 @@ fn main()
     println!("args.len() = {}", args.len());
     if args.len() == 1 
     {
-        repl();
+        repl(vm);
     } else if args.len() == 2
     {
         RunFile(&args[1]);
@@ -27,7 +27,7 @@ fn main()
     }
 }
 
-fn repl()
+fn repl(mut vm: vm::VM)
 {
     let mut line = String::new();
     loop 
@@ -35,6 +35,7 @@ fn repl()
         print!("> ");
         io::stdout().flush();
         let input = std::io::stdin().read_line(&mut line).unwrap();
+        vm::interpret(line, &mut vm);
         break;
     }
 }

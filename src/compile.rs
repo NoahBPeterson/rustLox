@@ -1,7 +1,11 @@
 use std::convert::TryInto;
 
 use crate::chunk::{Chunk, OpCode, add_constant, init_chunk, write_chunk};
+use crate::debug::disassemble_chunk;
 use crate::scanner::{self, Init_Scanner, Make_Token, Scan_Token, Scanner, Token, TokenType};
+
+const debug_print_code: bool = true;
+const debug_trace_execution: bool = true;
 
 #[derive(Clone)]
 pub struct Parser
@@ -38,27 +42,43 @@ impl Parser
     }
 }
 
+#[repr(u8)]
 #[derive(Copy, Clone)]
 pub enum Precedence
 {
-    PrecNone,
-    PrecAssignment,
-    PrecOr,
-    PrecAnd,
-    PrecEquality,
-    PrecComparison,
-    PrecTerm,
-    PrecUnary,
-    PrecCall,
-    PrecPrimary
+    PrecNone = 1,
+    PrecAssignment = 2,
+    PrecOr = 3,
+    PrecAnd = 4,
+    PrecEquality = 5,
+    PrecComparison = 6,
+    PrecTerm = 7,
+    PrecFactor = 8,
+    PrecUnary = 9,
+    PrecCall = 10,
+    PrecPrimary = 11
 }
 
-#[derive(Copy, Clone)]
-pub struct ParseRule
+impl Precedence
 {
-    prefix: Option<ParserFn>,
-    infix: Option<ParserFn>,
-    precedence: Precedence
+    const fn get_precedence(precedence: u8) -> Option<Precedence>
+    {
+        match precedence
+        {
+            1 => Some(Precedence::PrecNone),
+            2 => Some(Precedence::PrecAssignment),
+            3 => Some(Precedence::PrecOr),
+            4 => Some(Precedence::PrecAnd),
+            5 => Some(Precedence::PrecEquality),
+            6 => Some(Precedence::PrecComparison),
+            7 => Some(Precedence::PrecTerm),
+            8 => Some(Precedence::PrecFactor),
+            9 => Some(Precedence::PrecUnary),
+            10 => Some(Precedence::PrecCall),
+            11 => Some(Precedence::PrecPrimary),
+            _ => None
+        }
+    }
 }
 
 fn init_parser(scanner: &mut Scanner, chunk: &Chunk) -> Parser
@@ -86,18 +106,19 @@ impl Compiler<'_>
     {
         Compiler
         {
-            scanner: scanner::Init_Scanner(&"".to_string()),
+            scanner: scanner::Init_Scanner("".to_string()),
             parser: Parser::new(),
             current_chunk: chunk
         }
     }
     
-    pub fn compile(&mut self, source: &String) -> bool
+    pub fn compile(&mut self, source: String) -> bool
     {
         self.scanner = scanner::Init_Scanner(source);
         self.parser = init_parser(&mut self.scanner, self.current_chunk);
         let mut compiling_chunk: Chunk = init_chunk();
         self.advance();
+        self.expression();
         self.end_compiler();
         !self.parser.had_error
     }
@@ -135,8 +156,8 @@ impl Compiler<'_>
     fn binary(&mut self)
     {
         let operator_type = self.parser.previous.token_type;
-        let rule = self.get_rule(operator_type);
-        self.parse_precedence(rule.precedence + 1);
+        let rule = get_rule(operator_type);
+        self.parse_precedence(Precedence::get_precedence(rule.precedence as u8 + 1).unwrap());
 
         match operator_type
         {
@@ -165,9 +186,9 @@ impl Compiler<'_>
         self.parse_precedence(Precedence::PrecAssignment);
     }
 
-    fn number(&mut self, number: String)
+    fn number(&mut self)
     {
-        let value: f64 = number.parse().unwrap();
+        let value: f64 = self.parser.previous.start.parse().unwrap();
         self.emit_constant(value);
     }
 
@@ -194,6 +215,24 @@ impl Compiler<'_>
     fn parse_precedence(&mut self, precedence: Precedence)
     {
         self.advance();
+        let prefixRule = get_rule(self.parser.previous.token_type).prefix;
+
+        match prefixRule
+        {
+            Some(prefix) => prefix(self),
+            None => self.error("Expect expression".to_owned())
+        }
+
+        while precedence as u8 <= get_rule(self.parser.current.token_type).precedence as u8
+        {
+            self.advance();
+            let infixRule = get_rule(self.parser.previous.token_type).infix;
+            match infixRule
+            {
+                Some(infix) => infix(self),
+                None => (),
+            }
+        }
     }
 
     fn make_constant(&mut self, value: f64) -> u8
@@ -228,12 +267,20 @@ impl Compiler<'_>
 
     fn emit_constant(&mut self, value: f64)
     {
-        self.emit_bytes(OpCode::OpConstant as u8, self.make_constant(value));
+        let byte_constant = self.make_constant(value);
+        self.emit_bytes(OpCode::OpConstant as u8, byte_constant);
     }
 
     fn end_compiler(&mut self)
     {
         self.emit_return();
+        if debug_print_code
+        {
+            if self.parser.had_error
+            {
+                disassemble_chunk(self.current_chunk, "code".to_owned())
+            }
+        }
     }
 
     fn error_at_current(&mut self, message: String)
@@ -273,56 +320,60 @@ impl Compiler<'_>
 
 type ParserFn = fn(&mut Compiler) -> ();
 
-
-
-/*fn get_rule(token_type: TokenType) -> ParseRule
+#[derive(Copy, Clone)]
+pub struct ParseRule
 {
-    let rules: Vec<ParseRule> = Vec::with_capacity(0);
-    let array: [fn(); fn(); Precedence] = 
-    rules.push(ParseRule {prefix: grouping, precedence: Precedence::PrecNone, infix: () });
-    let ParseRule rules[] = {
-        [TokenType::TokenLeftParen]    = {grouping, NULL,   PREC_NONE},
-        [TOKEN_RIGHT_PAREN]   = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_LEFT_BRACE]    = {NULL,     NULL,   PREC_NONE}, 
-        [TOKEN_RIGHT_BRACE]   = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_COMMA]         = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_DOT]           = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_MINUS]         = {unary,    binary, PREC_TERM},
-        [TOKEN_PLUS]          = {NULL,     binary, PREC_TERM},
-        [TOKEN_SEMICOLON]     = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_SLASH]         = {NULL,     binary, PREC_FACTOR},
-        [TOKEN_STAR]          = {NULL,     binary, PREC_FACTOR},
-        [TOKEN_BANG]          = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_BANG_EQUAL]    = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_EQUAL]         = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_EQUAL_EQUAL]   = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_GREATER]       = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_GREATER_EQUAL] = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_LESS]          = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_LESS_EQUAL]    = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_IDENTIFIER]    = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_STRING]        = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_NUMBER]        = {number,   NULL,   PREC_NONE},
-        [TOKEN_AND]           = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_CLASS]         = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_ELSE]          = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_FALSE]         = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_FOR]           = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_FUN]           = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_IF]            = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_NIL]           = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_OR]            = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_PRINT]         = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_RETURN]        = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_SUPER]         = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_THIS]          = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_TRUE]          = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_VAR]           = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_WHILE]         = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_ERROR]         = {NULL,     NULL,   PREC_NONE},
-        [TOKEN_EOF]           = {NULL,     NULL,   PREC_NONE},
-      };
-    return 
-}*/
+    prefix: Option<ParserFn>,
+    infix: Option<ParserFn>,
+    precedence: Precedence
+}
+
+fn get_rule(token_type: TokenType) -> ParseRule
+{
+    parse_rules[token_type as usize]
+}
+
+static parse_rules : [ParseRule; 40] = [
+    ParseRule {prefix: Some(|compiler| compiler.grouping()), infix: None, precedence: Precedence::PrecNone}, //'('
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // ')'
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // '{'
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // '}'
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // ','
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // '.'
+    ParseRule {prefix: Some(|compiler | compiler.unary()), infix: Some(|compiler| compiler.binary()), precedence: Precedence::PrecTerm}, // '-'
+    ParseRule {prefix: None, infix: Some(|compiler| compiler.binary()), precedence: Precedence::PrecTerm}, // '+'
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // ';'
+    ParseRule {prefix: None, infix: Some(|compiler| compiler.binary()), precedence: Precedence::PrecFactor}, // '/'
+    ParseRule {prefix: None, infix: Some(|compiler| compiler.binary()), precedence: Precedence::PrecFactor}, // '*'
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // '!'
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // '!='
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // '='
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // '=='
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // '>'
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // '>='
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // '<'
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // '<='
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'identifier'
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'string'
+    ParseRule {prefix: Some(|compiler| compiler.number()), infix: None, precedence: Precedence::PrecNone}, // 'number'
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'and'
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'class'
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'else'
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'false'
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'for'
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'fun'
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'if'
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'nil'
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'or'
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'print'
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'return'
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'super'
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'this'
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'true'
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'var'
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'while'
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'error'
+    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'eof'
+];
 
 

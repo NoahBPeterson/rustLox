@@ -16,7 +16,7 @@ pub struct Token
     pub line: u32
 }
 
-pub fn Init_Scanner(source: &String) -> Scanner
+pub fn Init_Scanner(source: String) -> Scanner
 {
     return Scanner {source: source.clone(), start: 0, current: 0, line: 1};
 }
@@ -267,7 +267,7 @@ fn peekNext(scanner: &Scanner) -> char
 
 fn get_character_from_scanner_source(location: u32, scanner: &Scanner) -> char
 {
-    return scanner.source.chars().nth(location as usize).unwrap();
+    return scanner.source.chars().nth(location as usize).unwrap_or_else(|| '\0');
 }
 
 fn matchCharacter(expected_string: char, scanner: &mut Scanner) -> bool
@@ -287,7 +287,7 @@ fn matchCharacter(expected_string: char, scanner: &mut Scanner) -> bool
 pub fn advance(scanner: &mut Scanner) -> char
 {
     scanner.current = scanner.current + 1;
-    return scanner.source.clone()[(scanner.current - 1) as usize..scanner.current as usize].chars().next().unwrap();
+    return scanner.source.clone()[(scanner.current - 1) as usize..scanner.current as usize].chars().next().unwrap_or_else(|| '❎');
 }
 
 pub fn Make_Token(tokenType: TokenType, scanner: &Scanner) -> Token

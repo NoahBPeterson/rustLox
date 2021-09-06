@@ -24,9 +24,9 @@ pub fn init_vm() -> VM
     };
 }
 
-pub fn interpret(source: &String, vm: &mut VM) -> InterpretResult
+pub fn interpret(source: String, vm: &mut VM) -> InterpretResult
 {
-    let chunk = init_chunk();
+    let mut chunk = init_chunk();
 
     if !Compiler::new_compiler(&mut chunk).compile(source)
     {

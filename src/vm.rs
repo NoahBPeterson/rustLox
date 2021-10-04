@@ -84,28 +84,28 @@ pub fn run(vm: &mut VM) -> InterpretResult
             }
             x if x == chunk::OpCode::OpAdd as u8 =>
             {
-                let a = pop(vm);
                 let b = pop(vm);
+                let a = pop(vm);
                 push(a + b, vm);
             }
             x if x == chunk::OpCode::OpSubtract as u8 =>
             {
-                let a = pop(vm);
                 let b = pop(vm);
+                let a = pop(vm);
                 print_value(a - b);
                 push(a - b, vm);
             }
             x if x == chunk::OpCode::OpMultiply as u8 =>
             {
-                let a = pop(vm);
                 let b = pop(vm);
+                let a = pop(vm);
                 print_value(a * b);
                 push(a * b, vm);
             }
             x if x == chunk::OpCode::OpDivide as u8 =>
             {
-                let a = pop(vm);
                 let b = pop(vm);
+                let a = pop(vm);
                 print_value(a / b);
                 push(a / b, vm);
             }

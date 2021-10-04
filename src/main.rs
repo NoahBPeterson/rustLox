@@ -23,7 +23,7 @@ fn main()
     {
         RunFile(&args[1]);
     } else {
-        println!("Usage: clox [path]");
+        println!("Usage: rust_lox [path]");
     }
 }
 

@@ -3,6 +3,7 @@ use std::convert::TryInto;
 use crate::chunk::{Chunk, OpCode, add_constant, init_chunk, write_chunk};
 use crate::debug::disassemble_chunk;
 use crate::scanner::{self, Init_Scanner, Make_Token, Scan_Token, Scanner, Token, TokenType};
+use crate::value::{NumberAsValue, Value, GetNumber};
 
 const debug_print_code: bool = true;
 const debug_trace_execution: bool = true;
@@ -189,7 +190,7 @@ impl Compiler<'_>
     fn number(&mut self)
     {
         let value: f64 = self.parser.previous.start.replace(" ", "").parse().unwrap();
-        self.emit_constant(value);
+        self.emit_constant(crate::value::NumberAsValue(value));
     }
 
     fn unary(&mut self)
@@ -265,9 +266,9 @@ impl Compiler<'_>
 
 
 
-    fn emit_constant(&mut self, value: f64)
+    fn emit_constant(&mut self, value: Value)
     {
-        let byte_constant = self.make_constant(value);
+        let byte_constant = self.make_constant(GetNumber(value));
         self.emit_bytes(OpCode::OpConstant as u8, byte_constant);
     }
 

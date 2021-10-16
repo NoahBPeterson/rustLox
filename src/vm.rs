@@ -1,13 +1,13 @@
 use core::f64;
 use std::string;
 
-use crate::{chunk::{self, Chunk, init_chunk}, compile::{self, Compiler}, debug::disassemble_instruction, value::print_value};
+use crate::{chunk::{self, Chunk, init_chunk}, compile::{self, Compiler}, debug::disassemble_instruction, value::{IsNumber, Value, print_value}};
 
 pub struct VM
 {
     chunk: Chunk,
     instructions: Vec<u8>,
-    stack: Vec<f64>,
+    stack: Vec<Value>,
     StackTop: u32,
     ip: u16,
 }
@@ -71,7 +71,7 @@ pub fn run(vm: &mut VM) -> InterpretResult
             }
             x if x == chunk::OpCode::OpConstant as u8 =>
             {
-                let constant: f64 = vm.chunk.constants.values[vm.ip as usize];
+                let constant = vm.chunk.constants.values[vm.ip as usize];
                 vm.ip = vm.ip + 1;
                 i = i + 1;
                 print_value(constant);
@@ -80,34 +80,59 @@ pub fn run(vm: &mut VM) -> InterpretResult
             }
             x if x == chunk::OpCode::OpNegate as u8 =>
             {
-                push(-pop(vm), vm);
+                if !crate::value::IsNumber(peek(0, vm))
+                {
+                    RuntimeError(vm, "Operand must be a number.".to_string());
+                    return InterpretResult::InterpretRuntimeError;
+                }
+                push(crate::value::NumberAsValue(-crate::value::GetNumber(pop(vm))), vm);
             }
             x if x == chunk::OpCode::OpAdd as u8 =>
             {
-                let b = pop(vm);
-                let a = pop(vm);
-                push(a + b, vm);
+                if !crate::value::IsNumber(peek(0, vm)) || !crate::value::IsNumber(peek(1, vm))
+                {
+                    RuntimeError(vm, "Operands must be numbers.".to_string());
+                    return InterpretResult::InterpretRuntimeError;
+                }
+                let b = crate::value::GetNumber(pop(vm));
+                let a = crate::value::GetNumber(pop(vm));
+                push(crate::value::NumberAsValue(a + b), vm);
             }
             x if x == chunk::OpCode::OpSubtract as u8 =>
             {
-                let b = pop(vm);
-                let a = pop(vm);
-                print_value(a - b);
-                push(a - b, vm);
+                if !crate::value::IsNumber(peek(0, vm)) || !crate::value::IsNumber(peek(1, vm))
+                {
+                    RuntimeError(vm, "Operands must be numbers.".to_string());
+                    return InterpretResult::InterpretRuntimeError;
+                }
+                let b = crate::value::GetNumber(pop(vm));
+                let a = crate::value::GetNumber(pop(vm));
+                print_value(crate::value::NumberAsValue(a - b));
+                push(crate::value::NumberAsValue(a - b), vm);
             }
             x if x == chunk::OpCode::OpMultiply as u8 =>
             {
-                let b = pop(vm);
-                let a = pop(vm);
-                print_value(a * b);
-                push(a * b, vm);
+                if !crate::value::IsNumber(peek(0, vm)) || !crate::value::IsNumber(peek(1, vm))
+                {
+                    RuntimeError(vm, "Operands must be numbers.".to_string());
+                    return InterpretResult::InterpretRuntimeError;
+                }
+                let b = crate::value::GetNumber(pop(vm));
+                let a = crate::value::GetNumber(pop(vm));
+                print_value(crate::value::NumberAsValue(a * b));
+                push(crate::value::NumberAsValue(a * b), vm);
             }
             x if x == chunk::OpCode::OpDivide as u8 =>
             {
-                let b = pop(vm);
-                let a = pop(vm);
-                print_value(a / b);
-                push(a / b, vm);
+                if !crate::value::IsNumber(peek(0, vm)) || !crate::value::IsNumber(peek(1, vm))
+                {
+                    RuntimeError(vm, "Operands must be numbers.".to_string());
+                    return InterpretResult::InterpretRuntimeError;
+                }
+                let b = crate::value::GetNumber(pop(vm));
+                let a = crate::value::GetNumber(pop(vm));
+                print_value(crate::value::NumberAsValue(a / b));
+                push(crate::value::NumberAsValue(a / b), vm);
             }
             _ =>
             {
@@ -119,13 +144,18 @@ pub fn run(vm: &mut VM) -> InterpretResult
     return InterpretResult::InterpretOk;
 }
 
-pub fn push(value: f64, vm: &mut VM)
+fn peek(distance: u32, vm: &mut VM) -> Value
+{
+    vm.stack[((vm.StackTop -1) - distance) as usize]
+}
+
+pub fn push(value: Value, vm: &mut VM)
 {
     vm.stack.push(value);
     vm.StackTop = vm.StackTop + 1;
 }
 
-pub fn pop(vm: &mut VM) -> f64
+pub fn pop(vm: &mut VM) -> Value
 {
     if vm.StackTop == 0
     {
@@ -137,6 +167,20 @@ pub fn pop(vm: &mut VM) -> f64
     vm.stack.remove(vm.StackTop as usize);
 
     return stack_pop;
+}
+
+fn RuntimeError(vm: &mut VM, error: String)
+{
+    let instruction = vm.ip - vm.chunk.code[vm.ip as usize -1] as u16;
+    let lineNumber = vm.chunk.lines[instruction as usize];
+    println!("[line {}] in script", lineNumber);
+    println!("{}", error);
+    ResetStack(vm);
+}
+
+fn ResetStack(vm: &mut VM)
+{
+
 }
 
 pub enum InterpretResult

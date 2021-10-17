@@ -64,12 +64,31 @@ pub fn IsNil(value: Value) -> bool
 
 pub fn GetBool(value: Value) -> bool
 {
+    if IsNil(value)
+    {
+        return false;
+    }
     value.Value != 0
 }
 
 pub fn GetNumber(value: Value) -> f64
 {
     f64::from_be_bytes(u64::to_be_bytes(value.Value))
+}
+
+pub fn ValuesEqual(a: Value, b: Value) -> bool
+{
+    if a.ValueType as u8 != b.ValueType as u8
+    {
+        return false;
+    }
+    match a.ValueType as u8
+    {
+        x if x == ValueType::ValBool as u8 => return GetBool(a) == GetBool(b),
+        x if x == ValueType::ValNil as u8 => return true,
+        x if x == ValueType::ValNumber as u8 => return GetNumber(a) == GetNumber(b),
+        _ => return false,
+    }
 }
 
 pub fn init_value_array() -> ValueArray
@@ -84,5 +103,21 @@ pub fn write_value_array(value_array: &mut ValueArray, value: f64)
 
 pub fn print_value(value: Value)
 {
-    print!("{}", GetNumber(value));
+    match value.ValueType as u8
+    {
+        x if x == ValueType::ValBool as u8 => 
+        {
+            if GetBool(value)
+            {
+                print!("true");
+            }
+            else
+            {
+                print!("false");
+            }
+        }
+        x if x == ValueType::ValNil as u8 => print!("nil"),
+        x if x == ValueType::ValNumber as u8 => print!("{}", GetNumber(value)),
+        _ => print!("ValueType not matched! {}", value.ValueType as u8),
+    }
 }

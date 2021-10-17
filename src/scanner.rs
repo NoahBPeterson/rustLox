@@ -57,7 +57,7 @@ pub fn Scan_Token(scanner: &mut Scanner) -> Token
         {
             if matchCharacter('=', scanner)
             {
-                return Make_Token(TokenType::TokenEqualEqual, scanner);
+                return Make_Token(TokenType::TokenEqualEqual, scanner); // " ==" is made into the token " ="
             }
             return Make_Token(TokenType::TokenEqual, scanner);
         }
@@ -101,7 +101,7 @@ fn identifier(scanner: &mut Scanner) -> Token
 
 fn identifier_type(scanner: &mut Scanner) -> TokenType
 {
-    match get_character_from_scanner_source(scanner.current, scanner)
+    match get_character_from_scanner_source(scanner.start, scanner)
     {
         x if x.eq(&'a') => return check_keyword(1, 2, "nd".to_string(), TokenType::TokenAnd, scanner),
         x if x.eq(&'c') => return check_keyword(1, 4, "lass".to_string(), TokenType::TokenClass, scanner),
@@ -120,9 +120,9 @@ fn identifier_type(scanner: &mut Scanner) -> TokenType
             {
                 match get_character_from_scanner_source(scanner.start + 1, scanner)
                 {
-                    x if x.eq(&'a') => return check_keyword(1, 3, "lse".to_string(), TokenType::TokenFalse, scanner),
-                    x if x.eq(&'o') => return check_keyword(1, 1, "r".to_string(), TokenType::TokenFor, scanner),
-                    x if x.eq(&'u') => return check_keyword(1, 1, "n".to_string(), TokenType::TokenFun, scanner),
+                    x if x.eq(&'a') => return check_keyword(2, 3, "lse".to_string(), TokenType::TokenFalse, scanner),
+                    x if x.eq(&'o') => return check_keyword(2, 1, "r".to_string(), TokenType::TokenFor, scanner),
+                    x if x.eq(&'u') => return check_keyword(2, 1, "n".to_string(), TokenType::TokenFun, scanner),
                     _ => return TokenType::TokenIdentifier
                 }
             }
@@ -133,20 +133,26 @@ fn identifier_type(scanner: &mut Scanner) -> TokenType
             {
                 match get_character_from_scanner_source(scanner.start + 1, scanner)
                 {
-                    x if x.eq(&'h') => return check_keyword(1, 2, "is".to_string(), TokenType::TokenThis, scanner),
-                    x if x.eq(&'r') => return check_keyword(1, 3, "ue".to_string(), TokenType::TokenFalse, scanner),
+                    x if x.eq(&'h') => return check_keyword(2, 2, "is".to_string(), TokenType::TokenThis, scanner),
+                    x if x.eq(&'r') => return check_keyword(2, 2, "ue".to_string(), TokenType::TokenTrue, scanner),
                     _ => return TokenType::TokenIdentifier
                 }
             }
         }
-        _ => return TokenType::TokenIdentifier
+        _ => 
+        {
+            print!("No match! {}", get_character_from_scanner_source(scanner.start, scanner));
+            return TokenType::TokenIdentifier;
+        }
     }
     return TokenType::TokenIdentifier;
 }
 
 fn check_keyword(start: u32, length: u32, the_rest: String, token: TokenType, scanner: &mut Scanner) -> TokenType
 {
-    if scanner.source.clone()[scanner.start as usize..(scanner.start + length) as usize].to_string().eq(&the_rest)
+    println!("Debug: {}", scanner.source.clone()[(scanner.start + start) as usize..((scanner.start + start) + length) as usize].to_string());
+    println!("The rest: {}", the_rest);
+    if scanner.source.clone()[(scanner.start + start) as usize..((scanner.start + start) + length) as usize].to_string().eq(&the_rest)
     {
         return token;
     }
@@ -215,13 +221,13 @@ fn Skip_Whitespace(scanner: &mut Scanner)
         let character = peek(scanner);
         match character
         {
-            x if x == ' ' => advance(scanner),
-            x if x == '\r' => advance(scanner),
-            x if x == '\t' => advance(scanner),
+            x if x == ' ' => consume(scanner),
+            x if x == '\r' => consume(scanner),
+            x if x == '\t' => consume(scanner),
             x if x == '\n' => 
             {
                 scanner.line = scanner.line + 1;
-                advance(scanner);
+                consume(scanner);
                 break;
             }
             x if x == '/' =>
@@ -232,7 +238,7 @@ fn Skip_Whitespace(scanner: &mut Scanner)
                     {
                         if peek(scanner).ne(&'\n') && !isAtEnd(scanner)
                         {
-                            advance(scanner);
+                            consume(scanner);
                         }else
                         {
                             break;
@@ -244,6 +250,12 @@ fn Skip_Whitespace(scanner: &mut Scanner)
             _ => break
         };
     }
+}
+
+fn consume(scanner: &mut Scanner)
+{
+    scanner.start = scanner.start + 1;
+    scanner.current = scanner.current + 1;
 }
 
 fn peek(scanner: &mut Scanner) -> char
@@ -278,10 +290,11 @@ fn matchCharacter(expected_string: char, scanner: &mut Scanner) -> bool
     }
     if get_character_from_scanner_source(scanner.current, scanner).eq(&expected_string)
     {
-        return false;
+        scanner.current = scanner.current + 1;
+        return true;
     }
-    scanner.current = scanner.current + 1;
-    return true;
+    
+    return false;
 }
 
 pub fn advance(scanner: &mut Scanner) -> char

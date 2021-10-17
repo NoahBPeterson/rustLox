@@ -162,22 +162,28 @@ impl Compiler<'_>
 
         match operator_type
         {
-            x if x == TokenType::TokenPlus =>
-            {
-                self.emit_byte(OpCode::OpAdd as u8);
-            }
-            x if x == TokenType::TokenMinus =>
-            {
-                self.emit_byte(OpCode::OpSubtract as u8);
-            }
-            x if x == TokenType::TokenStar =>
-            {
-                self.emit_byte(OpCode::OpMultiply as u8);
-            }
-            x if x == TokenType::TokenSlash =>
-            {
-                self.emit_byte(OpCode::OpDivide as u8);
-            }
+            x if x == TokenType::TokenPlus => self.emit_byte(OpCode::OpAdd as u8),
+            x if x == TokenType::TokenMinus => self.emit_byte(OpCode::OpSubtract as u8),
+            x if x == TokenType::TokenStar => self.emit_byte(OpCode::OpMultiply as u8),
+            x if x == TokenType::TokenSlash => self.emit_byte(OpCode::OpDivide as u8),
+            x if x == TokenType::TokenBangEqual => self.emit_bytes(OpCode::OpEqual as u8, OpCode::OpNot as u8),
+            x if x == TokenType::TokenEqualEqual => self.emit_byte(OpCode::OpEqual as u8),
+            x if x == TokenType::TokenGreater => self.emit_byte(OpCode::OpGreater as u8),
+            x if x == TokenType::TokenGreaterEqual => self.emit_bytes(OpCode::OpLess as u8, OpCode::OpNot as u8),
+            x if x == TokenType::TokenLess => self.emit_byte(OpCode::OpLess as u8),
+            x if x == TokenType::TokenLessEqual => self.emit_bytes(OpCode::OpGreater as u8, OpCode::OpNot as u8),
+            _ => return,
+        }
+    }
+
+    fn literal(&mut self)
+    {
+        let operator_type = self.parser.previous.token_type;
+        match operator_type
+        {
+            x if x == TokenType::TokenFalse => self.emit_byte(OpCode::OpFalse as u8),
+            x if x == TokenType::TokenTrue => self.emit_byte(OpCode::OpTrue as u8),
+            x if x == TokenType::TokenNil => self.emit_byte(OpCode::OpNil as u8),
             _ => return,
         }
     }
@@ -201,10 +207,8 @@ impl Compiler<'_>
 
         match operator_type
         {
-            x if x == TokenType::TokenMinus =>
-            {
-                self.emit_byte(OpCode::OpNegate as u8);
-            }
+            x if x == TokenType::TokenMinus => self.emit_byte(OpCode::OpNegate as u8),
+            x if x == TokenType::TokenBang => self.emit_byte(OpCode::OpNot as u8),
             _ => 
             {
                 return;
@@ -346,31 +350,31 @@ static parse_rules : [ParseRule; 40] = [
     ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // ';'
     ParseRule {prefix: None, infix: Some(|compiler| compiler.binary()), precedence: Precedence::PrecFactor}, // '/'
     ParseRule {prefix: None, infix: Some(|compiler| compiler.binary()), precedence: Precedence::PrecFactor}, // '*'
-    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // '!'
-    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // '!='
+    ParseRule {prefix: Some(|compiler | compiler.unary()), infix: None, precedence: Precedence::PrecNone}, // '!'
+    ParseRule {prefix: None, infix: Some(|compiler| compiler.binary()), precedence: Precedence::PrecEquality}, // '!='
     ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // '='
-    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // '=='
-    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // '>'
-    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // '>='
-    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // '<'
-    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // '<='
+    ParseRule {prefix: None, infix: Some(|compiler| compiler.binary()), precedence: Precedence::PrecComparison}, // '=='
+    ParseRule {prefix: None, infix: Some(|compiler| compiler.binary()), precedence: Precedence::PrecComparison}, // '>'
+    ParseRule {prefix: None, infix: Some(|compiler| compiler.binary()), precedence: Precedence::PrecComparison}, // '>='
+    ParseRule {prefix: None, infix: Some(|compiler| compiler.binary()), precedence: Precedence::PrecComparison}, // '<'
+    ParseRule {prefix: None, infix: Some(|compiler| compiler.binary()), precedence: Precedence::PrecComparison}, // '<='
     ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'identifier'
     ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'string'
     ParseRule {prefix: Some(|compiler| compiler.number()), infix: None, precedence: Precedence::PrecNone}, // 'number'
     ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'and'
     ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'class'
     ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'else'
-    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'false'
+    ParseRule {prefix: Some(|compiler|compiler.literal()), infix: None, precedence: Precedence::PrecNone}, // 'false'
     ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'for'
     ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'fun'
     ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'if'
-    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'nil'
+    ParseRule {prefix: Some(|compiler|compiler.literal()), infix: None, precedence: Precedence::PrecNone}, // 'nil'
     ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'or'
     ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'print'
     ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'return'
     ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'super'
     ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'this'
-    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'true'
+    ParseRule {prefix: Some(|compiler|compiler.literal()), infix: None, precedence: Precedence::PrecNone}, // 'true'
     ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'var'
     ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'while'
     ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'error'

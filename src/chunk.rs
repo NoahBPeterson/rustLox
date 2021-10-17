@@ -12,6 +12,13 @@ pub enum OpCode
     OpSubtract = 4,
     OpMultiply = 5,
     OpDivide = 6,
+    OpNil = 7,
+    OpTrue = 8,
+    OpFalse = 9,
+    OpNot = 10,
+    OpEqual = 11,
+    OpGreater = 12,
+    OpLess = 13,
 }
 
 #[derive(Clone)]

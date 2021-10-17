@@ -1,7 +1,7 @@
 use core::f64;
 use std::string;
 
-use crate::{chunk::{self, Chunk, init_chunk}, compile::{self, Compiler}, debug::disassemble_instruction, value::{IsNumber, Value, print_value}};
+use crate::{chunk::{self, Chunk, init_chunk}, compile::{self, Compiler}, debug::disassemble_instruction, value::{BoolAsValue, IsBool, GetBool, NumberAsValue, IsNumber, GetNumber, NilAsValue, IsNil, ValuesEqual, Value, print_value}};
 
 pub struct VM
 {
@@ -134,6 +134,35 @@ pub fn run(vm: &mut VM) -> InterpretResult
                 print_value(crate::value::NumberAsValue(a / b));
                 push(crate::value::NumberAsValue(a / b), vm);
             }
+            x if x == chunk::OpCode::OpGreater as u8 =>
+            {
+                if !crate::value::IsNumber(peek(0, vm)) || !crate::value::IsNumber(peek(1, vm))
+                {
+                    RuntimeError(vm, "Operands must be numbers.".to_string());
+                    return InterpretResult::InterpretRuntimeError;
+                }
+                let b = crate::value::GetNumber(pop(vm));
+                let a = crate::value::GetNumber(pop(vm));
+                print_value(crate::value::BoolAsValue(a > b));
+                push(crate::value::BoolAsValue(a > b), vm);
+            }
+            x if x == chunk::OpCode::OpLess as u8 =>
+            {
+                if !crate::value::IsNumber(peek(0, vm)) || !crate::value::IsNumber(peek(1, vm))
+                {
+                    RuntimeError(vm, "Operands must be numbers.".to_string());
+                    return InterpretResult::InterpretRuntimeError;
+                }
+                let b = crate::value::GetNumber(pop(vm));
+                let a = crate::value::GetNumber(pop(vm));
+                print_value(crate::value::BoolAsValue(a < b));
+                push(crate::value::BoolAsValue(a < b), vm);
+            }
+            x if x == chunk::OpCode::OpNil as u8 => push(crate::value::NilAsValue(), vm),
+            x if x == chunk::OpCode::OpTrue as u8 => push(crate::value::BoolAsValue(true), vm),
+            x if x == chunk::OpCode::OpFalse as u8 => push(crate::value::BoolAsValue(false), vm),
+            x if x == chunk::OpCode::OpNot as u8 => push(crate::value::BoolAsValue(IsFalsey(pop(vm))), vm),
+            x if x == chunk::OpCode::OpEqual as u8 => push(crate::value::BoolAsValue(ValuesEqual(pop(vm), pop(vm))), vm),
             _ =>
             {
                 return InterpretResult::InterpretRuntimeError;
@@ -147,6 +176,11 @@ pub fn run(vm: &mut VM) -> InterpretResult
 fn peek(distance: u32, vm: &mut VM) -> Value
 {
     vm.stack[((vm.StackTop -1) - distance) as usize]
+}
+
+fn IsFalsey(value: Value) -> bool
+{
+    return crate::value::IsNil(value) || (crate::value::IsBool(value) && !crate::value::GetBool(value));
 }
 
 pub fn push(value: Value, vm: &mut VM)

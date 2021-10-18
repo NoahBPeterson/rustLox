@@ -7,9 +7,9 @@ Todo: ☐ ☑ ☒
 
 ☑ Scanner
 
-☐ Compiling Expressions
+☑ Compiling Expressions
 
-☐ Value Types
+☑ Value Types
 
 ☐ Strings
 

@@ -1,3 +1,5 @@
+use crate::object::Obj;
+
 
 #[derive(Clone)]
 pub struct ValueArray
@@ -5,90 +7,130 @@ pub struct ValueArray
     pub values: Vec<Value>,
 }
 
-#[derive(Clone, Copy)]
+
+#[derive(Clone)]
 pub enum ValueType
 {
-    ValBool = 1,
-    ValNil = 2,
-    ValNumber = 3,
+    ValBool(bool),
+    ValNil,
+    ValNumber(f64),
+    ValObj(Box<Obj>),
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct Value
 {
     ValueType: ValueType,
-    Value: u64,
+}
+
+impl Value
+{
+    pub fn IsBool(self) -> bool
+    {
+        match self.ValueType
+        {
+            ValueType::ValBool(_) => return true,
+            _ => return false,
+        }
+    }
+
+    pub fn IsNumber(self) -> bool
+    {
+        match self.ValueType
+        {
+            ValueType::ValNumber(_) => return true,
+            _ => return false,
+        }
+    }
+
+    pub fn IsNil(self) -> bool
+    {
+        match self.ValueType
+        {
+            ValueType::ValNil => return true,
+            _ => return false,
+        }
+    }
+
+    pub fn IsObject(self) -> bool
+    {
+        match self.ValueType
+        {
+            ValueType::ValObj(_) => return true,
+            _ => return false,
+        }
+    }
+
+    pub fn GetBool(self) -> bool
+    {
+        match self.ValueType
+        {
+            ValueType::ValBool(val) => return val,
+            _ => panic!("Attempted to get a bool from a non-bool!"),
+        }
+    }
+
+    pub fn GetNumber(self) -> f64
+    {
+        match self.ValueType
+        {
+            ValueType::ValNumber(val) => return val,
+            _ => panic!("Attempted to get a number from a non-number!"),
+        }
+    }
+
+    pub fn GetObject(self) -> Obj
+    {
+        match self.ValueType
+        {
+            ValueType::ValObj(val) => return *val,
+            _ => panic!("Attempted to get a number from a non-object!"),
+        }
+    }
+
+    pub fn Equals(self, b: Value) -> bool
+    {
+        match (self.ValueType, b.ValueType)
+        {
+            (ValueType::ValBool(ValueOfA), ValueType::ValBool(ValueOfB)) => return ValueOfA == ValueOfB,
+            (ValueType::ValNil, ValueType::ValNil) => return true,
+            (ValueType::ValNumber(ValueOfA), ValueType::ValNumber(ValueOfB)) => return ValueOfA == ValueOfB,
+            _ => return false,
+        }
+    }
+
+    pub fn IsFalsey(self) -> bool
+    {
+        return self.clone().IsNil() || (self.clone().IsBool() && !self.clone().GetBool());
+    }
+}
+
+impl From<bool> for Value
+{
+    fn from(boolean: bool) -> Self
+    {
+        Value { ValueType: ValueType::ValBool(boolean) }
+    }
 }
 
 pub fn BoolAsValue(boolean: bool) -> Value
 {
-    Value { ValueType: ValueType::ValBool, Value: u64::from_be_bytes(u64::to_be_bytes(boolean as u64))}
+    Value { ValueType: ValueType::ValBool(boolean) }
 }
 
 pub fn NilAsValue() -> Value
 {
-    Value { ValueType: ValueType::ValNil, Value: u64::from_be_bytes(u64::to_be_bytes(0 as u64))}
+    Value { ValueType: ValueType::ValNil}
 }
 
 pub fn NumberAsValue(number: f64) -> Value
 {
-    Value { ValueType: ValueType::ValNumber, Value: u64::from_be_bytes(f64::to_be_bytes(number))}
+    Value { ValueType: ValueType::ValNumber(number)}
 }
 
-pub fn IsBool(value: Value) -> bool
+pub fn ObjAsValue(obj: Obj) -> Value
 {
-    if value.ValueType as u8 == ValueType::ValBool as u8
-    {
-        return true;
-    }
-    return false;
-}
-
-pub fn IsNumber(value: Value) -> bool
-{
-    if value.ValueType as u8 == ValueType::ValNumber as u8
-    {
-        return true;
-    }
-    return false;
-}
-
-pub fn IsNil(value: Value) -> bool
-{
-    if value.ValueType as u8 == ValueType::ValNil as u8
-    {
-        return true;
-    }
-    return false;
-}
-
-pub fn GetBool(value: Value) -> bool
-{
-    if IsNil(value)
-    {
-        return false;
-    }
-    value.Value != 0
-}
-
-pub fn GetNumber(value: Value) -> f64
-{
-    f64::from_be_bytes(u64::to_be_bytes(value.Value))
-}
-
-pub fn ValuesEqual(a: Value, b: Value) -> bool
-{
-    if a.ValueType as u8 != b.ValueType as u8
-    {
-        return false;
-    }
-    match a.ValueType as u8
-    {
-        x if x == ValueType::ValBool as u8 => return GetBool(a) == GetBool(b),
-        x if x == ValueType::ValNil as u8 => return true,
-        x if x == ValueType::ValNumber as u8 => return GetNumber(a) == GetNumber(b),
-        _ => return false,
-    }
+    Value { ValueType: ValueType::ValObj(Box::from(obj)) }
 }
 
 pub fn init_value_array() -> ValueArray
@@ -103,11 +145,11 @@ pub fn write_value_array(value_array: &mut ValueArray, value: f64)
 
 pub fn print_value(value: Value)
 {
-    match value.ValueType as u8
+    match value.ValueType
     {
-        x if x == ValueType::ValBool as u8 => 
+        ValueType::ValBool(_) => 
         {
-            if GetBool(value)
+            if value.GetBool()
             {
                 print!("true");
             }
@@ -116,8 +158,8 @@ pub fn print_value(value: Value)
                 print!("false");
             }
         }
-        x if x == ValueType::ValNil as u8 => print!("nil"),
-        x if x == ValueType::ValNumber as u8 => print!("{}", GetNumber(value)),
-        _ => print!("ValueType not matched! {}", value.ValueType as u8),
+        ValueType::ValNil => print!("nil"),
+        ValueType::ValNumber(_) => print!("{}", value.GetNumber()),
+        _ => print!("ValueType not matched!"),
     }
 }

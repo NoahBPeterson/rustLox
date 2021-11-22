@@ -2,8 +2,9 @@ use std::convert::TryInto;
 
 use crate::chunk::{Chunk, OpCode, add_constant, init_chunk, write_chunk};
 use crate::debug::disassemble_chunk;
+use crate::object::Obj;
 use crate::scanner::{self, Init_Scanner, Make_Token, Scan_Token, Scanner, Token, TokenType};
-use crate::value::{NumberAsValue, Value, GetNumber};
+use crate::value::{self, NumberAsValue, ObjAsValue, Value};
 
 const debug_print_code: bool = true;
 const debug_trace_execution: bool = true;
@@ -199,6 +200,18 @@ impl Compiler<'_>
         self.emit_constant(crate::value::NumberAsValue(value));
     }
 
+    fn string(&mut self)
+    {
+        self.emit_constant(
+            value::ObjAsValue(
+                Obj::CopyString(self.parser.previous.start.clone()[(1 as usize)..((self.parser.previous.length-2) as usize)].to_string(), self.parser.previous.length-3)
+            )
+
+        );
+        //emitConstant(OBJ_VAL(copyString(parser.previous.start + 1,
+          //                              parser.previous.length - 2)));
+    }
+
     fn unary(&mut self)
     {
         let operator_type: TokenType = self.parser.previous.token_type;
@@ -272,7 +285,7 @@ impl Compiler<'_>
 
     fn emit_constant(&mut self, value: Value)
     {
-        let byte_constant = self.make_constant(GetNumber(value));
+        let byte_constant = self.make_constant(value.GetNumber());
         self.emit_bytes(OpCode::OpConstant as u8, byte_constant);
     }
 
@@ -359,7 +372,7 @@ static parse_rules : [ParseRule; 40] = [
     ParseRule {prefix: None, infix: Some(|compiler| compiler.binary()), precedence: Precedence::PrecComparison}, // '<'
     ParseRule {prefix: None, infix: Some(|compiler| compiler.binary()), precedence: Precedence::PrecComparison}, // '<='
     ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'identifier'
-    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'string'
+    ParseRule {prefix: Some(|compiler| compiler.string()), infix: None, precedence: Precedence::PrecNone}, // 'string'
     ParseRule {prefix: Some(|compiler| compiler.number()), infix: None, precedence: Precedence::PrecNone}, // 'number'
     ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'and'
     ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'class'

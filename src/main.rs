@@ -1,6 +1,6 @@
 use std::{env, fs, io::{self, Write}, string};
 
-use vm::{InterpretResult, interpret};
+use vm::{InterpretResult};
 
 mod chunk;
 mod debug;
@@ -8,6 +8,7 @@ mod value;
 mod vm;
 mod compile;
 mod scanner;
+mod object;
 
 fn main()
 {
@@ -35,7 +36,7 @@ fn repl(mut vm: vm::VM)
         print!("> ");
         io::stdout().flush();
         let input = std::io::stdin().read_line(&mut line).unwrap();
-        vm::interpret(line, &mut vm);
+        vm.interpret(line);
         break;
     }
 }

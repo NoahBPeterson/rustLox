@@ -33,9 +33,9 @@ pub fn init_chunk() -> Chunk
 {
     let chunk_init = Chunk
     {
-        code: Vec::with_capacity(0),
+        code: Vec::new(), //with_capacity(0),
         constants: value::init_value_array(),
-        lines: Vec::with_capacity(0),
+        lines: Vec::new(), //with_capacity(0),
         };
     return chunk_init;
 }

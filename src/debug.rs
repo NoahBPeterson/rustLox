@@ -61,7 +61,7 @@ pub fn constant_instruction(name: String, chunk: &Chunk, offset: u8) -> u8
 {
     let constant: u8 = chunk.code[offset as usize + 1];
     print!("{:16}\t{:4} '", name, constant);
-    value::print_value(chunk.constants.values[constant as usize]);
+    value::print_value(chunk.constants.values[constant as usize].clone());
     print!("'\n");
     return offset + 2;
 }

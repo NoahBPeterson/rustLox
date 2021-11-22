@@ -3,16 +3,16 @@ use std::{string, sync::Arc};
 
 use crate::{chunk::{self, Chunk, init_chunk}, compile::{self, Compiler}, debug::disassemble_instruction, value::{BoolAsValue, NumberAsValue, NilAsValue, Value, print_value}};
 
-pub struct VM<'a>
+pub struct VM
 {
-    chunk: &'a mut Chunk,
+    chunk: Chunk,
     instructions: Vec<u8>,
     stack: Vec<Value>,
     StackTop: u32,
     ip: u16,
 }
 
-impl VM<'_>
+impl VM
 { 
 
     pub fn interpret(&mut self, source: String) -> InterpretResult
@@ -24,14 +24,14 @@ impl VM<'_>
             return InterpretResult::InterpretCompileError;
         }
     
-        self.chunk = &mut chunk;
+        self.chunk = chunk;
         self.instructions = self.chunk.code.clone();
     
         let result = self.run();
         return result;
     }
 
-    fn peek(self, distance: u32) -> Value
+    fn peek(&self, distance: u32) -> Value
     {
         self.stack[((self.StackTop -1) - distance) as usize].clone()
     }
@@ -101,7 +101,8 @@ impl VM<'_>
                         self.RuntimeError( "Operand must be a number.".to_string());
                         return InterpretResult::InterpretRuntimeError;
                     }
-                    self.push(crate::value::NumberAsValue(-self.pop().GetNumber()));
+                    let negatedNumber = -self.pop().GetNumber();
+                    self.push(crate::value::NumberAsValue(negatedNumber));
                 }
                 x if x == chunk::OpCode::OpAdd as u8 =>
                 {
@@ -177,8 +178,16 @@ impl VM<'_>
                 x if x == chunk::OpCode::OpNil as u8 => self.push(crate::value::NilAsValue()),
                 x if x == chunk::OpCode::OpTrue as u8 => self.push(crate::value::BoolAsValue(true)),
                 x if x == chunk::OpCode::OpFalse as u8 => self.push(crate::value::BoolAsValue(false)),
-                x if x == chunk::OpCode::OpNot as u8 => self.push(crate::value::BoolAsValue(self.pop().IsFalsey())),
-                x if x == chunk::OpCode::OpEqual as u8 => self.push(crate::value::BoolAsValue(self.pop().Equals(self.pop()))),
+                x if x == chunk::OpCode::OpNot as u8 => 
+                {
+                    let boolean_not = self.pop().IsFalsey();
+                    self.push(crate::value::BoolAsValue(boolean_not));
+                }
+                x if x == chunk::OpCode::OpEqual as u8 => 
+                {
+                    let is_equal = self.pop().Equals(self.pop());
+                    self.push(crate::value::BoolAsValue(is_equal))
+                }
                 _ =>
                 {
                     return InterpretResult::InterpretRuntimeError;
@@ -189,16 +198,16 @@ impl VM<'_>
         return InterpretResult::InterpretOk;
     }
 
-    fn RuntimeError(self, error: String)
+    fn RuntimeError(&self, error: String)
     {
         let instruction = self.ip - self.chunk.code[self.ip as usize -1] as u16;
-        let lineNumber = self.chunk.lines[instruction as usize];
-        println!("[line {}] in script", lineNumber);
+        let line_number = self.chunk.lines[instruction as usize];
+        println!("[line {}] in script", line_number);
         println!("{}", error);
         self.ResetStack();
     }
 
-    fn ResetStack(self)
+    fn ResetStack(&self)
     {
 
     }
@@ -208,7 +217,7 @@ pub fn init_vm() -> VM
 {
     VM
     {
-        chunk: &mut chunk::init_chunk(),
+        chunk: chunk::init_chunk(),
         instructions: Vec::with_capacity(0),
         stack: Vec::with_capacity(0),
         StackTop: 0,

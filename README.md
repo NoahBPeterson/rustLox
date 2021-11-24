@@ -11,7 +11,7 @@ Todo: ☐ ☑ ☒
 
 ☑ Value Types
 
-☐ Strings
+☑ Strings
 
 ☐ Hash Tables
 

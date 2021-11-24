@@ -1,6 +1,6 @@
 use std::u32;
 
-use crate::value::{self, ValueArray};
+use crate::value::{self, Value, ValueArray};
 
 #[repr(u8)]
 pub enum OpCode
@@ -46,7 +46,7 @@ pub fn write_chunk(chunk: &mut Chunk, byte: u8, line: u32)
     chunk.lines.push(line);
 }
 
-pub fn add_constant(chunk: &mut Chunk, value: f64) -> u32
+pub fn add_constant(chunk: &mut Chunk, value: Value) -> u32
 {
     value::write_value_array(&mut chunk.constants, value);
     return (chunk.constants.values.len() - 1) as u32;

@@ -204,7 +204,7 @@ impl Compiler<'_>
     {
         self.emit_constant(
             value::ObjAsValue(
-                Obj::CopyString(self.parser.previous.start.clone()[(1 as usize)..((self.parser.previous.length-2) as usize)].to_string(), self.parser.previous.length-3)
+                Obj::CopyString(self.parser.previous.start.clone()[(1 as usize)..((self.parser.previous.length-1) as usize)].to_string(), self.parser.previous.length-2)
             )
 
         );
@@ -253,7 +253,7 @@ impl Compiler<'_>
         }
     }
 
-    fn make_constant(&mut self, value: f64) -> u8
+    fn make_constant(&mut self, value: Value) -> u8
     {
         let constant = add_constant(&mut self.current_chunk, value);
         if constant > 255
@@ -285,7 +285,7 @@ impl Compiler<'_>
 
     fn emit_constant(&mut self, value: Value)
     {
-        let byte_constant = self.make_constant(value.GetNumber());
+        let byte_constant = self.make_constant(value);
         self.emit_bytes(OpCode::OpConstant as u8, byte_constant);
     }
 

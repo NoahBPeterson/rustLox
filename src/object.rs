@@ -10,14 +10,14 @@ pub enum ObjType
 #[derive(Clone)]
 pub struct Obj
 {
-    typeOfObject: ObjType,
+    pub typeOfObject: ObjType,
 }
 
 #[derive(Clone)]
 pub struct ObjString
 {
-    length: u32,
-    str: String,
+    pub length: u32,
+    pub str: String,
 }
 
 impl Obj

@@ -1,7 +1,7 @@
 use core::f64;
-use std::{string, sync::Arc};
+use std::{ops::Add, string, sync::Arc};
 
-use crate::{chunk::{self, Chunk, init_chunk}, compile::{self, Compiler}, debug::disassemble_instruction, value::{BoolAsValue, NumberAsValue, NilAsValue, Value, print_value}};
+use crate::{chunk::{self, Chunk, init_chunk}, compile::{self, Compiler}, debug::disassemble_instruction, object::{Obj, ObjString, ObjType}, value::{self, BoolAsValue, NilAsValue, NumberAsValue, ObjAsValue, Value, print_value}};
 
 pub struct VM
 {
@@ -101,19 +101,27 @@ impl VM
                         self.RuntimeError( "Operand must be a number.".to_string());
                         return InterpretResult::InterpretRuntimeError;
                     }
-                    let negatedNumber = -self.pop().GetNumber();
-                    self.push(crate::value::NumberAsValue(negatedNumber));
+                    let negated_number = -self.pop().GetNumber();
+                    self.push(crate::value::NumberAsValue(negated_number));
                 }
                 x if x == chunk::OpCode::OpAdd as u8 =>
                 {
-                    if !self.peek(0).IsNumber() || !self.peek(1).IsNumber()
+                    if self.peek(0).IsString() && self.peek(1).IsString()
                     {
-                        self.RuntimeError("Operands must be numbers.".to_string());
+                        self.Concatenate();
+                    }
+                    else if self.peek(0).IsNumber() && self.peek(1).IsNumber()
+                    {
+                        let b = self.pop().GetNumber();
+                        let a = self.pop().GetNumber();
+                        self.push(crate::value::NumberAsValue(a + b));
+    
+                    }
+                    else
+                    {
+                        self.RuntimeError("Operands must be numbers or strings.".to_string());
                         return InterpretResult::InterpretRuntimeError;
                     }
-                    let b = self.pop().GetNumber();
-                    let a = self.pop().GetNumber();
-                    self.push(crate::value::NumberAsValue(a + b));
                 }
                 x if x == chunk::OpCode::OpSubtract as u8 =>
                 {
@@ -196,6 +204,16 @@ impl VM
             i = i + 1;
         }
         return InterpretResult::InterpretOk;
+    }
+
+    fn Concatenate(&mut self)
+    {
+        let value_of_b = self.pop().GetString();
+        let value_of_a = self.pop().GetString();
+        let length = value_of_a.length + value_of_b.length;
+
+        let both = ObjString {str: value_of_a.str + &value_of_b.str, length: length };
+        self.push(value::ObjAsValue(Obj {typeOfObject: ObjType::ObjString(Box::new(both)) }));
     }
 
     fn RuntimeError(&self, error: String)

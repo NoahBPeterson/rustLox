@@ -1,4 +1,4 @@
-use crate::object::Obj;
+use crate::object::{Obj, ObjString, ObjType};
 
 
 #[derive(Clone)]
@@ -61,6 +61,22 @@ impl Value
         }
     }
 
+    pub fn IsString(self) -> bool
+    {
+        match self.ValueType
+        {
+            ValueType::ValObj(val) => 
+            {
+                match val.typeOfObject
+                {
+                    ObjType::ObjString(_) => return true,
+                    _ => return false,
+                }
+            }
+            _ => return false,
+        }
+    }
+
     pub fn GetBool(self) -> bool
     {
         match self.ValueType
@@ -88,6 +104,22 @@ impl Value
         }
     }
 
+    pub fn GetString(self) -> ObjString
+    {
+        match self.ValueType
+        {
+            ValueType::ValObj(val) => 
+            {
+                match val.typeOfObject
+                {
+                    ObjType::ObjString(val) => return *val,
+                    _ => panic!("Attempted to get a string from a non-string object!"),
+                }
+            },
+            _ => panic!("Attempted to get a number from a non-object!"),
+        }
+    }
+
     pub fn Equals(self, b: Value) -> bool
     {
         match (self.ValueType, b.ValueType)
@@ -95,6 +127,14 @@ impl Value
             (ValueType::ValBool(ValueOfA), ValueType::ValBool(ValueOfB)) => return ValueOfA == ValueOfB,
             (ValueType::ValNil, ValueType::ValNil) => return true,
             (ValueType::ValNumber(ValueOfA), ValueType::ValNumber(ValueOfB)) => return ValueOfA == ValueOfB,
+            (ValueType::ValObj(ValueOfA), ValueType::ValObj(ValueOfB)) =>
+            {
+                match (ValueOfA.typeOfObject, ValueOfB.typeOfObject)
+                {
+                    (ObjType::ObjString(valA), ObjType::ObjString(valB)) => return valA.str.eq(&valB.str),
+                    _ => return false,
+                }
+            }
             _ => return false,
         }
     }
@@ -138,9 +178,9 @@ pub fn init_value_array() -> ValueArray
     return ValueArray {values: Vec::with_capacity(0) };
 }
 
-pub fn write_value_array(value_array: &mut ValueArray, value: f64)
+pub fn write_value_array(value_array: &mut ValueArray, value: Value)
 {
-    value_array.values.push(NumberAsValue(value));
+    value_array.values.push(value);
 }
 
 pub fn print_value(value: Value)
@@ -160,6 +200,14 @@ pub fn print_value(value: Value)
         }
         ValueType::ValNil => print!("nil"),
         ValueType::ValNumber(_) => print!("{}", value.GetNumber()),
+        ValueType::ValObj(_) =>
+        {
+            match value.GetObject().typeOfObject
+            {
+                ObjType::ObjString(val) => print!("{}", val.str),
+                _ => print!("Unknown object type!"),
+            }
+        }
         _ => print!("ValueType not matched!"),
     }
 }

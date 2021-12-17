@@ -15,12 +15,13 @@ pub enum ValueType
     ValNil,
     ValNumber(f64),
     ValObj(Box<Obj>),
+    ValInternalNil,
 }
 
 #[derive(Clone)]
 pub struct Value
 {
-    ValueType: ValueType,
+    pub ValueType: ValueType,
 }
 
 impl Value
@@ -161,6 +162,11 @@ pub fn BoolAsValue(boolean: bool) -> Value
 pub fn NilAsValue() -> Value
 {
     Value { ValueType: ValueType::ValNil}
+}
+
+pub fn InternalNil() -> Value
+{
+    Value { ValueType: ValueType::ValInternalNil}
 }
 
 pub fn NumberAsValue(number: f64) -> Value

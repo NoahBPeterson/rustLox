@@ -1,7 +1,7 @@
 use core::f64;
-use std::{ops::Add, string, sync::Arc};
+use std::{collections::HashMap, hash::Hash, ops::Add, string, sync::Arc};
 
-use crate::{chunk::{self, Chunk, init_chunk}, compile::{self, Compiler}, debug::disassemble_instruction, object::{Obj, ObjString, ObjType}, value::{self, BoolAsValue, NilAsValue, NumberAsValue, ObjAsValue, Value, print_value}};
+use crate::{chunk::{self, Chunk, init_chunk}, compile::{self, Compiler}, debug::disassemble_instruction, object::{Obj, ObjString, ObjType}, value::{self, BoolAsValue, InternalNil, NilAsValue, NumberAsValue, ObjAsValue, Value, ValueType, print_value}};
 
 pub struct VM
 {
@@ -10,6 +10,7 @@ pub struct VM
     stack: Vec<Value>,
     StackTop: u32,
     ip: u16,
+    table: HashMap<ObjString, Value>,
 }
 
 impl VM
@@ -19,7 +20,7 @@ impl VM
     {
         let mut chunk = init_chunk();
     
-        if !Compiler::new_compiler(&mut chunk).compile(source)
+        if !Compiler::new_compiler(&mut chunk, &mut vm).compile(source)
         {
             return InterpretResult::InterpretCompileError;
         }
@@ -229,6 +230,61 @@ impl VM
     {
 
     }
+
+    pub fn TableSet(&mut self, key: ObjString, value: Value) -> bool
+    {
+        let newEntry = self.FindEntry(&key);
+        self.table.insert(key, value);
+
+        match newEntry
+        {
+            Value => true,
+            _ => false,
+        }
+    }
+
+    fn TableDelete(&mut self, key: &ObjString) -> bool
+    {
+        let entryExists = self.FindEntry(&key);
+        self.table.remove(key);
+        match entryExists.ValueType
+        {
+            ValueType::ValInternalNil => return false,
+            _ => return true,
+        }
+    }
+    /*
+        bool tableDelete(Table* table, ObjString* key) {
+        if (table->count == 0) return false;
+
+        // Find the entry.
+        Entry* entry = findEntry(table->entries, table->capacity, key);
+        if (entry->key == NULL) return false;
+
+        // Place a tombstone in the entry.
+        entry->key = NULL;
+        entry->value = BOOL_VAL(true);
+        return true;
+        }
+    */
+
+    fn FindEntry(&self, key: &ObjString) -> Value
+    {
+        match self.table.get(&key)
+        {
+            Some(val) => val.to_owned(),
+            None => InternalNil(),
+        }
+    }
+
+    fn TableGet(&self, key: ObjString) -> (bool, Value)
+    {
+        match self.table.get(&key)
+        {
+            Some(val) => (true, val.to_owned()),
+            None => (false, InternalNil()),
+        }
+    }
 }
 
 pub fn init_vm() -> VM
@@ -239,7 +295,8 @@ pub fn init_vm() -> VM
         instructions: Vec::with_capacity(0),
         stack: Vec::with_capacity(0),
         StackTop: 0,
-        ip: 0
+        ip: 0,
+        table: HashMap::new(),
     }
 }
 

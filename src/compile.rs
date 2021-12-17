@@ -99,7 +99,8 @@ pub struct Compiler<'a>
 {
     scanner: Scanner,
     parser: Parser,
-    current_chunk: &'a mut Chunk
+    current_chunk: &'a mut Chunk,
+    vm: &mut VM,
 }
 
 impl Compiler<'_>

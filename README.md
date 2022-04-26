@@ -13,7 +13,7 @@ Todo: ☐ ☑ ☒
 
 ☑ Strings
 
-☐ Hash Tables
+☑ Hash Tables
 
 ☐ Global Variables
 

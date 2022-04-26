@@ -3,8 +3,9 @@ use std::convert::TryInto;
 use crate::chunk::{Chunk, OpCode, add_constant, init_chunk, write_chunk};
 use crate::debug::disassemble_chunk;
 use crate::object::Obj;
-use crate::scanner::{self, Init_Scanner, Make_Token, Scan_Token, Scanner, Token, TokenType};
+use crate::scanner::{self, Make_Token, Scan_Token, Scanner, Token, TokenType};
 use crate::value::{self, NumberAsValue, ObjAsValue, Value};
+use crate::vm::{self, VM};
 
 const debug_print_code: bool = true;
 const debug_trace_execution: bool = true;
@@ -95,23 +96,24 @@ fn init_parser(scanner: &mut Scanner, chunk: &Chunk) -> Parser
 
 }
 
-pub struct Compiler<'a>
+pub struct Compiler<'a, 'b>
 {
     scanner: Scanner,
     parser: Parser,
     current_chunk: &'a mut Chunk,
-    vm: &mut VM,
+    vm: &'b mut VM,
 }
 
-impl Compiler<'_>
+impl Compiler<'_, '_>
 {
-    pub fn new_compiler(chunk: &mut Chunk) -> Compiler
+    pub fn new_compiler<'a, 'b>(chunk: &'a mut Chunk, vm: &'b mut VM) -> Compiler<'a, 'b>
     {
         Compiler
         {
             scanner: scanner::Init_Scanner("".to_string()),
             parser: Parser::new(),
-            current_chunk: chunk
+            current_chunk: chunk,
+            vm: vm
         }
     }
     
@@ -203,14 +205,13 @@ impl Compiler<'_>
 
     fn string(&mut self)
     {
-        self.emit_constant(
-            value::ObjAsValue(
-                Obj::CopyString(self.parser.previous.start.clone()[(1 as usize)..((self.parser.previous.length-1) as usize)].to_string(), self.parser.previous.length-2)
-            )
-
+        let val = value::ObjAsValue(
+            Obj::CopyString(
+                &mut self.vm,
+                self.parser.previous.start.clone()[(1 as usize)..((self.parser.previous.length-1) as usize)].to_string(),
+                self.parser.previous.length-2)
         );
-        //emitConstant(OBJ_VAL(copyString(parser.previous.start + 1,
-          //                              parser.previous.length - 2)));
+        self.emit_constant(val);
     }
 
     fn unary(&mut self)

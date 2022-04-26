@@ -3,6 +3,7 @@ use std::{collections::HashMap, hash::Hash, ops::Add, string, sync::Arc};
 
 use crate::{chunk::{self, Chunk, init_chunk}, compile::{self, Compiler}, debug::disassemble_instruction, object::{Obj, ObjString, ObjType}, value::{self, BoolAsValue, InternalNil, NilAsValue, NumberAsValue, ObjAsValue, Value, ValueType, print_value}};
 
+#[derive(Clone)]
 pub struct VM
 {
     chunk: Chunk,
@@ -20,7 +21,7 @@ impl VM
     {
         let mut chunk = init_chunk();
     
-        if !Compiler::new_compiler(&mut chunk, &mut vm).compile(source)
+        if !Compiler::new_compiler(&mut chunk, self).compile(source)
         {
             return InterpretResult::InterpretCompileError;
         }
@@ -253,20 +254,6 @@ impl VM
             _ => return true,
         }
     }
-    /*
-        bool tableDelete(Table* table, ObjString* key) {
-        if (table->count == 0) return false;
-
-        // Find the entry.
-        Entry* entry = findEntry(table->entries, table->capacity, key);
-        if (entry->key == NULL) return false;
-
-        // Place a tombstone in the entry.
-        entry->key = NULL;
-        entry->value = BOOL_VAL(true);
-        return true;
-        }
-    */
 
     fn FindEntry(&self, key: &ObjString) -> Value
     {

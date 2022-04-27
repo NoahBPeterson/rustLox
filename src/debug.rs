@@ -43,6 +43,7 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: u8) -> u8
         x if x == OpCode::OpEqual as u8 =>  return simple_instruction("OpEqual\n".to_string(), offset),
         x if x == OpCode::OpGreater as u8 =>  return simple_instruction("OpGreater\n".to_string(), offset),
         x if x == OpCode::OpLess as u8 =>  return simple_instruction("OpLess\n".to_string(), offset),
+        x if x == OpCode::OpPrint as u8 =>  return simple_instruction("OpPrint\n".to_string(), offset),
         _ => 
         {
             print!("Unknown opcode {}\n", instruction);

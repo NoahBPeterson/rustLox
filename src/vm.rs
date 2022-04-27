@@ -83,8 +83,8 @@ impl VM
             {
                 x if x == chunk::OpCode::OpReturn as u8 =>
                 {
-                    print_value(self.pop());
-                    println!("");
+                    //print_value(self.pop());
+                    //println!("");
                     return InterpretResult::InterpretOk;
                 }
                 x if x == chunk::OpCode::OpConstant as u8 =>
@@ -197,6 +197,12 @@ impl VM
                 {
                     let is_equal = self.pop().Equals(self.pop());
                     self.push(crate::value::BoolAsValue(is_equal))
+                }
+                x if x == chunk::OpCode::OpPrint as u8 => 
+                {
+                    let print = self.pop();
+                    print_value(print);
+                    println!("");
                 }
                 _ =>
                 {

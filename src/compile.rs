@@ -123,7 +123,13 @@ impl Compiler<'_, '_>
         self.parser = init_parser(&mut self.scanner, self.current_chunk);
         let mut compiling_chunk: Chunk = init_chunk();
         //self.advance();
-        self.expression();
+        //self.expression();
+
+        while !self.match_token(TokenType::TokenEof)
+        {
+            self.declaration();
+        }
+
         self.end_compiler();
         !self.parser.had_error
     }
@@ -142,6 +148,7 @@ impl Compiler<'_, '_>
             self.error_at_current(self.parser.current.start.clone());
         }
     }
+
     fn consume(&mut self, token_type: TokenType, message: String)
     {
         if self.parser.current.token_type == token_type
@@ -150,6 +157,17 @@ impl Compiler<'_, '_>
             return;
         }
         self.error_at_current(message);
+    }
+
+    fn match_token(&mut self, token_type: TokenType) -> bool
+    {
+        if self.parser.current.token_type != token_type
+        {
+            return false;
+        }
+            
+        self.advance();
+        return true;
     }
 
     fn grouping(&mut self)
@@ -197,6 +215,27 @@ impl Compiler<'_, '_>
         self.parse_precedence(Precedence::PrecAssignment);
     }
 
+    fn print_statement(&mut self)
+    {
+        self.expression();
+        self.consume(TokenType::TokenSemicolon, "Expect ';' after value.".to_owned());
+        self.emit_byte(OpCode::OpPrint as u8)
+    }
+
+    fn declaration(&mut self)
+    {
+        self.statement();
+    }
+
+    fn statement(&mut self)
+    {
+        if self.match_token(TokenType::TokenPrint)
+        {
+            self.print_statement();
+        }
+    }
+
+    
     fn number(&mut self)
     {
         let value: f64 = self.parser.previous.start.replace(" ", "").parse().unwrap();
@@ -385,7 +424,7 @@ static parse_rules : [ParseRule; 40] = [
     ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'if'
     ParseRule {prefix: Some(|compiler|compiler.literal()), infix: None, precedence: Precedence::PrecNone}, // 'nil'
     ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'or'
-    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'print'
+    ParseRule {prefix: Some(|compiler|compiler.expression()), infix: None, precedence: Precedence::PrecNone}, // 'print'
     ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'return'
     ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'super'
     ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'this'

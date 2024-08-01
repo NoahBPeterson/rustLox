@@ -44,6 +44,10 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: u8) -> u8
         x if x == OpCode::OpGreater as u8 =>  return simple_instruction("OpGreater\n".to_string(), offset),
         x if x == OpCode::OpLess as u8 =>  return simple_instruction("OpLess\n".to_string(), offset),
         x if x == OpCode::OpPrint as u8 =>  return simple_instruction("OpPrint\n".to_string(), offset),
+        x if x == OpCode::OpPop as u8 =>  return simple_instruction("OpPop\n".to_string(), offset),
+        x if x == OpCode::OpDefineGlobal as u8 =>  return constant_instruction("OpDefineVariable\n".to_string(), chunk, offset),
+        x if x == OpCode::OpGetGlobal as u8 =>  return constant_instruction("OpGetGlobal\n".to_string(), chunk, offset),
+        x if x == OpCode::OpSetGlobal as u8 =>  return constant_instruction("OpSetGlobal\n".to_string(), chunk, offset),
         _ => 
         {
             print!("Unknown opcode {}\n", instruction);

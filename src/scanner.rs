@@ -270,7 +270,7 @@ fn isAtEnd(scanner: &Scanner) -> bool
 
 fn peekNext(scanner: &Scanner) -> char
 {
-    if (isAtEnd(scanner))
+    if isAtEnd(scanner)
     {
         return '\0';
     }

@@ -1,4 +1,4 @@
-use std::{env, fs, io::{self, Write}, string};
+use std::{env, fs, io::{self, Write}};
 
 use vm::{InterpretResult};
 
@@ -12,8 +12,8 @@ mod object;
 
 fn main()
 {
-    let mut vm = vm::init_vm();
-    let mut chunk: chunk::Chunk = chunk::init_chunk();
+    let vm = vm::init_vm();
+    let _chunk: chunk::Chunk = chunk::init_chunk();
 
     let args: Vec<String> = env::args().collect();
     println!("args.len() = {}", args.len());
@@ -35,15 +35,16 @@ fn repl(mut vm: vm::VM)
     {
         print!("> ");
         io::stdout().flush();
-        let input = std::io::stdin().read_line(&mut line).unwrap();
+        let _input = std::io::stdin().read_line(&mut line).unwrap();
         vm.interpret(line);
-        break;
+        line = String::new();
+        //break;
     }
 }
 
 fn RunFile(path: &String)
 {
-    let source = fs::read_to_string(path)
+    let _source = fs::read_to_string(path)
         .expect("Something went wrong reading the file");
 
     let result: u8 = InterpretResult::InterpretCompileError as u8; //interpret(source);

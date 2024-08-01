@@ -2,10 +2,10 @@ use std::convert::TryInto;
 
 use crate::chunk::{Chunk, OpCode, add_constant, init_chunk, write_chunk};
 use crate::debug::disassemble_chunk;
-use crate::object::Obj;
+use crate::object::{Obj, ObjString};
 use crate::scanner::{self, Make_Token, Scan_Token, Scanner, Token, TokenType};
-use crate::value::{self, NumberAsValue, ObjAsValue, Value};
-use crate::vm::{self, VM};
+use crate::value::{self, ObjAsValue, Value};
+use crate::vm::{VM};
 
 const debug_print_code: bool = true;
 const debug_trace_execution: bool = true;
@@ -46,7 +46,7 @@ impl Parser
 }
 
 #[repr(u8)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, PartialOrd)]
 pub enum Precedence
 {
     PrecNone = 1,
@@ -84,7 +84,7 @@ impl Precedence
     }
 }
 
-fn init_parser(scanner: &mut Scanner, chunk: &Chunk) -> Parser
+fn init_parser(scanner: &mut Scanner, _chunk: &Chunk) -> Parser
 {
     return Parser
     {
@@ -121,9 +121,7 @@ impl Compiler<'_, '_>
     {
         self.scanner = scanner::Init_Scanner(source);
         self.parser = init_parser(&mut self.scanner, self.current_chunk);
-        let mut compiling_chunk: Chunk = init_chunk();
-        //self.advance();
-        //self.expression();
+        let _compiling_chunk: Chunk = init_chunk();
 
         while !self.match_token(TokenType::TokenEof)
         {
@@ -157,6 +155,11 @@ impl Compiler<'_, '_>
             return;
         }
         self.error_at_current(message);
+    }
+
+    fn check(&mut self, token_type: TokenType) -> bool
+    {
+        self.parser.current.token_type == token_type
     }
 
     fn match_token(&mut self, token_type: TokenType) -> bool
@@ -215,6 +218,30 @@ impl Compiler<'_, '_>
         self.parse_precedence(Precedence::PrecAssignment);
     }
 
+    fn var_declaration(&mut self)
+    {
+        let global = self.parse_variable("Expect variable name.".to_owned());
+
+        if self.match_token(TokenType::TokenEqual)
+        {
+            self.expression()
+        } else
+        {
+            self.emit_byte(OpCode::OpNil as u8);
+        }
+
+        self.consume(TokenType::TokenSemicolon, "Expect ';' after variable declaration.".to_owned());
+
+        self.define_variable(global);
+    }
+
+    fn expression_statement(&mut self)
+    {
+        self.expression();
+        self.consume(TokenType::TokenSemicolon, "Expect ';' after expression.".to_owned());
+        self.emit_byte(OpCode::OpPop as u8)
+    }
+
     fn print_statement(&mut self)
     {
         self.expression();
@@ -222,9 +249,49 @@ impl Compiler<'_, '_>
         self.emit_byte(OpCode::OpPrint as u8)
     }
 
+    fn synchronize(&mut self)
+    {
+        self.parser.panic_mode = false;
+
+        while self.parser.current.token_type != TokenType::TokenEof
+        {
+            if self.parser.previous.token_type == TokenType::TokenSemicolon
+            {
+                return
+            }
+
+            match self.parser.current.token_type
+            {
+                x if x == TokenType::TokenClass => return,
+                x if x == TokenType::TokenFun => return,
+                x if x == TokenType::TokenVar => return,
+                x if x == TokenType::TokenFor => return,
+                x if x == TokenType::TokenIf => return,
+                x if x == TokenType::TokenWhile => return,
+                x if x == TokenType::TokenPrint => return,
+                x if x == TokenType::TokenReturn => return,
+                _ => (),
+            }
+
+            self.advance();
+        }
+    }
+
     fn declaration(&mut self)
     {
-        self.statement();
+        if self.match_token(TokenType::TokenVar)
+        {
+            self.var_declaration()
+        }
+        else
+        {
+            self.statement();   
+        }
+
+        if self.parser.panic_mode
+        {
+            self.synchronize();
+        }
     }
 
     fn statement(&mut self)
@@ -232,6 +299,9 @@ impl Compiler<'_, '_>
         if self.match_token(TokenType::TokenPrint)
         {
             self.print_statement();
+        } else
+        {
+            self.expression_statement();
         }
     }
 
@@ -244,13 +314,32 @@ impl Compiler<'_, '_>
 
     fn string(&mut self)
     {
-        let val = value::ObjAsValue(
+        let val: Value = value::ObjAsValue(
             Obj::CopyString(
                 &mut self.vm,
                 self.parser.previous.start.clone()[(1 as usize)..((self.parser.previous.length-1) as usize)].to_string(),
                 self.parser.previous.length-2)
         );
         self.emit_constant(val);
+    }
+
+    fn variable(&mut self)
+    {
+        self.named_variable(self.parser.previous.clone())
+    }
+
+    fn named_variable(&mut self, name: Token)
+    {
+        let argument: u8 = self.identifier_constant(name);
+
+        if self.match_token(TokenType::TokenEqual)
+        {
+            self.expression();
+            self.emit_bytes(OpCode::OpSetGlobal as u8, argument)
+        } else {
+            self.emit_bytes(OpCode::OpGetGlobal as u8, argument)
+        }
+        self.emit_bytes(OpCode::OpDefineGlobal as u8, argument)
     }
 
     fn unary(&mut self)
@@ -276,6 +365,8 @@ impl Compiler<'_, '_>
         self.advance();
         let prefixRule = get_rule(self.parser.previous.token_type).prefix;
 
+        let can_assign = precedence <= Precedence::PrecAssignment;
+
         match prefixRule
         {
             Some(prefix) => prefix(self),
@@ -292,6 +383,26 @@ impl Compiler<'_, '_>
                 None => (),
             }
         }
+    }
+
+    fn identifier_constant(&mut self, name: Token) -> u8
+    {
+        let identifier = Obj::CopyString(
+            self.vm,
+            name.start[(1 as usize)..((name.length-1) as usize)].to_string(),
+            name.length);
+        return self.make_constant(value::ObjAsValue(identifier));
+    }
+
+    fn parse_variable(&mut self, error_message: String) -> u8
+    {
+        self.consume(TokenType::TokenIdentifier, error_message);
+        return self.identifier_constant(self.parser.previous.clone())
+    }
+
+    fn define_variable(&mut self, global: u8)
+    {
+        self.emit_bytes(OpCode::OpDefineGlobal as u8, global);
     }
 
     fn make_constant(&mut self, value: Value) -> u8
@@ -412,7 +523,7 @@ static parse_rules : [ParseRule; 40] = [
     ParseRule {prefix: None, infix: Some(|compiler| compiler.binary()), precedence: Precedence::PrecComparison}, // '>='
     ParseRule {prefix: None, infix: Some(|compiler| compiler.binary()), precedence: Precedence::PrecComparison}, // '<'
     ParseRule {prefix: None, infix: Some(|compiler| compiler.binary()), precedence: Precedence::PrecComparison}, // '<='
-    ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'identifier'
+    ParseRule {prefix: Some(|compiler | compiler.variable()), infix: None, precedence: Precedence::PrecNone}, // 'identifier'
     ParseRule {prefix: Some(|compiler| compiler.string()), infix: None, precedence: Precedence::PrecNone}, // 'string'
     ParseRule {prefix: Some(|compiler| compiler.number()), infix: None, precedence: Precedence::PrecNone}, // 'number'
     ParseRule {prefix: None, infix: None, precedence: Precedence::PrecNone}, // 'and'

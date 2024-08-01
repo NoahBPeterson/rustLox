@@ -20,6 +20,10 @@ pub enum OpCode
     OpGreater = 12,
     OpLess = 13,
     OpPrint = 14,
+    OpPop = 15,
+    OpDefineGlobal = 16,
+    OpGetGlobal = 17,
+    OpSetGlobal = 18,
 }
 
 #[derive(Clone)]

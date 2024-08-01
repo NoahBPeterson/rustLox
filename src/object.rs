@@ -45,7 +45,8 @@ impl Obj
 
     pub fn CopyString(vm: &mut VM, str: String, length: u32) -> Obj
     {
-        vm.TableSet(ObjString { str: str.clone(), length: length }, NilAsValue() );
+        //let string_table = &vm.strings;
+        vm.TableSet(&vm.strings.clone(), &ObjString { str: str.clone(), length: length }, NilAsValue() );
         Obj { typeOfObject: ObjType::ObjString(Box::from(ObjString { str: str, length: length }) )}
         // ObjString { str: str, length: length} } //, obj: Obj { typeOfObject: ObjType::ObjString } }
     }

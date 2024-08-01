@@ -1,7 +1,7 @@
-use core::f64;
-use std::{collections::HashMap, hash::Hash, ops::Add, string, sync::Arc};
 
-use crate::{chunk::{self, Chunk, init_chunk}, compile::{self, Compiler}, debug::disassemble_instruction, object::{Obj, ObjString, ObjType}, value::{self, BoolAsValue, InternalNil, NilAsValue, NumberAsValue, ObjAsValue, Value, ValueType, print_value}};
+use std::{cell::RefCell, collections::HashMap};
+
+use crate::{chunk::{self, Chunk, init_chunk}, compile::{Compiler}, debug::disassemble_instruction, object::{Obj, ObjString, ObjType}, value::{self, InternalNil, Value, ValueType, print_value}};
 
 #[derive(Clone)]
 pub struct VM
@@ -11,7 +11,8 @@ pub struct VM
     stack: Vec<Value>,
     StackTop: u32,
     ip: u16,
-    table: HashMap<ObjString, Value>,
+    pub strings: RefCell<HashMap<ObjString, Value>>,
+    globals: RefCell<HashMap<ObjString, Value>>,
 }
 
 impl VM
@@ -69,14 +70,14 @@ impl VM
         let mut i = 0;
         while i < self.instructions.len()
         {
-            /*print!("          ");
-            for slot in &vm.stack
+            print!("          ");
+            for slot in &self.stack
             {
                 print!("[ ");
-                print_value(*slot);
+                print_value(slot.clone());
                 print!(" ]");
             }
-            println!("");*/
+            println!("");
             let line = self.instructions[i];
             disassemble_instruction(&self.chunk, i as u8);
             match line
@@ -204,6 +205,57 @@ impl VM
                     print_value(print);
                     println!("");
                 }
+                x if x == chunk::OpCode::OpPop as u8 => {self.pop();}
+                x if x == chunk::OpCode::OpDefineGlobal as u8 => 
+                {
+                    let name = self.read_string(); //READ_STRING
+                    match name
+                    {
+                        Some(string) =>
+                        {
+                            self.TableSet(&self.globals.clone(), &string, self.peek(0).clone());
+                            self.pop();
+                        },
+                        _ => return InterpretResult::InterpretRuntimeError,
+                    }
+                }
+                x if x == chunk::OpCode::OpGetGlobal as u8 =>
+                {
+                    let name = self.read_string();
+                    match name
+                    {
+                        Some(string) =>
+                        {
+                            let value = self.TableGet(&self.globals.clone(), &string);
+                            if !value.0
+                            {
+                                self.RuntimeError("Undefined variable '".to_owned()+&string.str.to_owned()+"'");
+                                return InterpretResult::InterpretRuntimeError
+                            } else {
+                                self.push(value.1)
+                            }
+                        }
+                        None => return InterpretResult::InterpretRuntimeError,
+                    }
+                }
+                x if x == chunk::OpCode::OpSetGlobal as u8 =>
+                {
+                    let name = self.read_string();
+                    match name
+                    {
+                        Some(string) =>
+                        {
+                            let value = self.TableSet(&self.globals.clone(), &string, self.peek(0).clone());
+                            if !value
+                            {
+                                self.TableDelete(&self.globals.clone(), &string);
+                                self.RuntimeError("Undefined variable '".to_owned()+&string.str.to_owned()+"'");
+                                return InterpretResult::InterpretRuntimeError
+                            }
+                        }
+                        None => return InterpretResult::InterpretRuntimeError,
+                    }
+                }
                 _ =>
                 {
                     return InterpretResult::InterpretRuntimeError;
@@ -238,41 +290,62 @@ impl VM
 
     }
 
-    pub fn TableSet(&mut self, key: ObjString, value: Value) -> bool
+    fn read_string(&mut self) -> Option<ObjString>
     {
-        let newEntry = self.FindEntry(&key);
-        self.table.insert(key, value);
-
-        match newEntry
+        let val = self.chunk.constants.values[self.ip as usize].clone();
+        match val.ValueType
         {
-            Value => true,
+            ValueType::ValObj(obj) =>
+            {
+                match obj.typeOfObject
+                {
+                    ObjType::ObjString(obj_str) => 
+                    {
+                        return Some(*obj_str);
+                    }
+                    _ => self.RuntimeError("Tried to grab a string from a non-string object!".to_owned())
+                }
+            }
+            _ => self.RuntimeError("Tried to grab a string from a non-obj value!".to_owned())
+        }
+        return None
+    }
+
+    pub fn TableSet(&mut self, table: &RefCell<HashMap<ObjString, Value>>, key: &ObjString, value: Value) -> bool
+    {
+        let new_entry = self.FindEntry(table.clone(), &key);
+        table.borrow_mut().insert(key.clone(), value);
+
+        match new_entry
+        {
+            _Value => true,
             _ => false,
         }
     }
 
-    fn TableDelete(&mut self, key: &ObjString) -> bool
+    fn TableDelete(&mut self, table: &RefCell<HashMap<ObjString, Value>>, key: &ObjString) -> bool
     {
-        let entryExists = self.FindEntry(&key);
-        self.table.remove(key);
-        match entryExists.ValueType
+        let entry_exists = self.FindEntry(table.clone(), &key);
+        table.borrow_mut().remove(key);
+        match entry_exists.ValueType
         {
             ValueType::ValInternalNil => return false,
             _ => return true,
         }
     }
 
-    fn FindEntry(&self, key: &ObjString) -> Value
+    fn FindEntry(&self, table: RefCell<HashMap<ObjString, Value>>, key: &ObjString) -> Value
     {
-        match self.table.get(&key)
+        match table.borrow().get(&key)
         {
             Some(val) => val.to_owned(),
             None => InternalNil(),
         }
     }
 
-    fn TableGet(&self, key: ObjString) -> (bool, Value)
+    fn TableGet(&self, table: &RefCell<HashMap<ObjString, Value>>, key: &ObjString) -> (bool, Value)
     {
-        match self.table.get(&key)
+        match table.borrow().get(&key)
         {
             Some(val) => (true, val.to_owned()),
             None => (false, InternalNil()),
@@ -289,7 +362,8 @@ pub fn init_vm() -> VM
         stack: Vec::with_capacity(0),
         StackTop: 0,
         ip: 0,
-        table: HashMap::new(),
+        strings: RefCell::new(HashMap::new()),
+        globals: RefCell::new(HashMap::new()),
     }
 }
 
